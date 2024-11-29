@@ -34,7 +34,8 @@ type HTTPTask struct {
 	PostURL           string             `json:"post_url"`
 	CurStatus         string             `json:"status"`
 	Frequency         string             `json:"frequency"`
-	Region            string             `json:"region"` // 冗余进来，便于调试
+	PostScript        string             `json:"post_script,omitempty"`
+	Region            string             `json:"region"`
 	OwnerExternalID   string             `json:"owner_external_id"`
 	SuccessWhenLogic  string             `json:"success_when_logic"`
 	SuccessWhen       []*HTTPSuccess     `json:"success_when"`
@@ -47,14 +48,15 @@ type HTTPTask struct {
 	UpdateTime        int64              `json:"update_time,omitempty"`
 	Option            map[string]string
 
-	ticker   *time.Ticker
-	cli      *http.Client
-	resp     *http.Response
-	req      *http.Request
-	respBody []byte
-	reqStart time.Time
-	reqCost  time.Duration
-	reqError string
+	ticker           *time.Ticker
+	cli              *http.Client
+	resp             *http.Response
+	req              *http.Request
+	respBody         []byte
+	reqStart         time.Time
+	reqCost          time.Duration
+	reqError         string
+	postScriptResult *ScriptResult
 
 	dnsParseTime   float64
 	connectionTime float64
@@ -383,6 +385,15 @@ func (t *HTTPTask) Run() error {
 	t.reqCost = time.Since(t.reqStart)
 	if err != nil {
 		goto result
+	}
+
+	if t.PostScript != "" {
+		if api, err := postScriptDo(t.PostScript, t.respBody, t.resp); err != nil {
+			t.reqError = err.Error()
+			goto result
+		} else {
+			t.postScriptResult = api
+		}
 	}
 
 	t.downloadTime = float64(time.Since(t1)) / float64(time.Microsecond)

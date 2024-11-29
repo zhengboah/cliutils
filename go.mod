@@ -49,6 +49,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.25.0
+	rogchap.com/v8go v0.9.0
 )
 
 require (
