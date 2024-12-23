@@ -388,11 +388,11 @@ func (t *HTTPTask) Run() error {
 	}
 
 	if t.PostScript != "" {
-		if api, err := postScriptDo(t.PostScript, t.respBody, t.resp); err != nil {
+		if result, err := postScriptDo(t.PostScript, t.respBody, t.resp); err != nil {
 			t.reqError = err.Error()
 			goto result
 		} else {
-			t.postScriptResult = api
+			t.postScriptResult = result
 		}
 	}
 
