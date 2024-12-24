@@ -57,6 +57,12 @@ type Task interface {
 	Ticker() *time.Ticker
 }
 
+// VariableTask is a interface for variable task which can use variable in task.
+type VariableTask interface {
+	SetTaskJSONString(string)
+	GetTaskJSONString() string
+}
+
 func getHostName(host string) (string, error) {
 	reqURL, err := url.Parse(host)
 	if err != nil {

@@ -20,10 +20,36 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/GuanceCloud/cliutils"
 )
+
+type ConfigVar struct {
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+	Example string `json:"example"`
+	Secure  bool   `json:"secure"`
+}
+
+type Variable struct {
+	Id          int    `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	UUID        string `json:"uuid,omitempty"`
+	TaskID      string `json:"task_id,omitempty"`
+	TaskVarName string `json:"task_var_name,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Secure      bool   `json:"secure,omitempty"`
+	PostScript  string `json:"post_script,omitempty"`
+
+	UpdatedAt       int64  `json:"updated_at,omitempty"`
+	OwnerExternalID string `json:"-"`
+	CreatedAt       int64  `json:"-"`
+	DeletedAt       int64  `json:"-"`
+}
 
 type HTTPTask struct {
 	ExternalID        string             `json:"external_id"`
@@ -47,16 +73,19 @@ type HTTPTask struct {
 	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
 	UpdateTime        int64              `json:"update_time,omitempty"`
 	Option            map[string]string
+	ConfigVars        []ConfigVar `json:"config_vars,omitempty"`
 
-	ticker           *time.Ticker
-	cli              *http.Client
-	resp             *http.Response
-	req              *http.Request
-	respBody         []byte
-	reqStart         time.Time
-	reqCost          time.Duration
-	reqError         string
-	postScriptResult *ScriptResult
+	ticker               *time.Ticker
+	cli                  *http.Client
+	resp                 *http.Response
+	req                  *http.Request
+	respBody             []byte
+	reqStart             time.Time
+	reqCost              time.Duration
+	reqError             string
+	postScriptResult     *ScriptResult
+	taskJSONString       string
+	parsedTaskJSONString string
 
 	dnsParseTime   float64
 	connectionTime float64
@@ -455,6 +484,14 @@ func (t *HTTPTask) CheckResult() (reasons []string, succFlag bool) {
 		}
 	}
 
+	if t.postScriptResult != nil {
+		if t.postScriptResult.Result.IsFailed {
+			reasons = append(reasons, t.postScriptResult.Result.ErrorMessage)
+		} else {
+			succFlag = true
+		}
+	}
+
 	return reasons, succFlag
 }
 
@@ -614,7 +651,7 @@ func (t *HTTPTask) init(debug bool) error {
 		}
 	}
 
-	if len(t.SuccessWhen) == 0 {
+	if len(t.SuccessWhen) == 0 && t.PostScript == "" {
 		return fmt.Errorf(`no any check rule`)
 	}
 
@@ -675,4 +712,61 @@ func (t *HTTPTask) GetDFLabel() string {
 		return t.DFLabel
 	}
 	return t.TagsInfo
+}
+
+func (t *HTTPTask) SetTaskJSONString(s string) {
+	t.taskJSONString = s
+}
+
+func (t *HTTPTask) GetTaskJSONString() string {
+	return t.taskJSONString
+}
+
+func (t *HTTPTask) PrepareTemplate(globalVariables map[string]string) error {
+	if globalVariables == nil {
+		globalVariables = make(map[string]string)
+	}
+
+	if len(t.ConfigVars) == 0 {
+		return nil
+	}
+
+	fm := template.FuncMap{}
+
+	for _, v := range t.ConfigVars {
+		value := v.Value
+		if v.Type == "global" && v.ID != "" { // global variables
+			if v, ok := globalVariables[v.ID]; ok {
+				value = v
+			}
+		}
+
+		fm[v.Name] = func() string {
+			return value
+		}
+	}
+
+	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
+	if err != nil {
+		return fmt.Errorf("parse template error: %w", err)
+	}
+	var buf strings.Builder
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		return fmt.Errorf("execute template error: %w", err)
+	}
+
+	parsedString := buf.String()
+
+	// no need to re-parse
+	if parsedString == t.parsedTaskJSONString {
+		return nil
+	}
+
+	t.parsedTaskJSONString = parsedString
+
+	if err := json.Unmarshal([]byte(parsedString), t); err != nil {
+		return fmt.Errorf("unmarshal parsed template error: %w", err)
+	}
+
+	return nil
 }

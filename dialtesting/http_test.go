@@ -7,6 +7,7 @@ package dialtesting
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/GuanceCloud/cliutils"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struct {
@@ -686,4 +688,72 @@ func addTestingRoutes(t *testing.T, r *gin.Engine, proxyServer *httptest.Server,
 			c.Data(http.StatusOK, ``, nil)
 		})
 	}
+}
+
+func TestPrepareTemplate(t *testing.T) {
+	globalVars := map[string]string{
+		"global_id": "global",
+	}
+
+	task := HTTPTask{
+		URL:        "http://localhost:8000/{{global}}",
+		PostScript: "{{local}}",
+		ConfigVars: []ConfigVar{
+			{
+				Name:  "local",
+				Type:  "local",
+				Value: "local",
+			},
+			{
+				Name: "global",
+				Type: "global",
+				ID:   "global_id",
+			},
+		},
+	}
+
+	v, err := json.Marshal(task)
+
+	assert.NoError(t, err)
+	task.SetTaskJSONString(string(v))
+
+	err = task.PrepareTemplate(globalVars)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "http://localhost:8000/global", task.URL)
+	assert.Equal(t, "local", task.PostScript)
+}
+
+func TestPostScript(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"token": "tkn_123"}`))
+	}))
+
+	task := HTTPTask{
+		Frequency: "1s",
+		URL:       server.URL,
+		PostScript: `
+
+	if response["status_code"] != 200 {
+		result["is_failed"] = true
+		result["error_message"] = "error"
+	}	else {
+		result["is_failed"] = false
+	}
+
+	body = load_json(response["body"])
+
+	vars["token"] = body["token"]
+	`,
+	}
+	vars := map[string]string{}
+	assert.NoError(t, task.PrepareTemplate(vars))
+	assert.NoError(t, task.Init())
+	assert.NoError(t, task.Run())
+
+	tags, fields := task.GetResults()
+
+	assert.Equal(t, "tkn_123", task.postScriptResult.Vars["token"])
+	assert.Equal(t, "OK", tags["status"])
+	assert.EqualValues(t, 1, fields["success"])
 }
