@@ -717,7 +717,7 @@ func TestPrepareTemplate(t *testing.T) {
 	assert.NoError(t, err)
 	task.SetTaskJSONString(string(v))
 
-	err = task.PrepareTemplate(globalVars)
+	err = task.RunTemplate(globalVars)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "http://localhost:8000/global", task.URL)
@@ -747,8 +747,8 @@ func TestPostScript(t *testing.T) {
 	`,
 	}
 	vars := map[string]string{}
-	assert.NoError(t, task.PrepareTemplate(vars))
 	assert.NoError(t, task.Init())
+	assert.NoError(t, task.RunTemplate(vars))
 	assert.NoError(t, task.Run())
 
 	tags, fields := task.GetResults()

@@ -94,6 +94,7 @@ type HTTPTask struct {
 	downloadTime   float64
 
 	destIP string
+	inited bool
 }
 
 const MaxMsgSize = 15 * 1024 * 1024
@@ -265,6 +266,24 @@ func (t *HTTPTask) GetResults() (tags map[string]string, fields map[string]inter
 	} else {
 		fields[`message`] = string(data)
 	}
+
+	// add config_vars
+	vars := []Variable{}
+	for _, v := range t.ConfigVars {
+		variable := Variable{
+			Name:   v.Name,
+			Secure: v.Secure,
+		}
+
+		if !v.Secure {
+			variable.Value = v.Value
+		}
+
+		vars = append(vars, variable)
+	}
+
+	bytes, _ := json.Marshal(vars)
+	fields[`config_vars`] = string(bytes)
 
 	return tags, fields
 }
@@ -692,7 +711,7 @@ func (t *HTTPTask) init(debug bool) error {
 	}
 
 	// TODO: more checking on task validity
-
+	t.inited = true
 	return nil
 }
 
@@ -722,13 +741,29 @@ func (t *HTTPTask) GetTaskJSONString() string {
 	return t.taskJSONString
 }
 
-func (t *HTTPTask) PrepareTemplate(globalVariables map[string]string) error {
+func (t *HTTPTask) RunTemplate(globalVariables map[string]string) error {
+	if isChanged, err := t.RenderTemplate(globalVariables); err != nil {
+		return fmt.Errorf("prepare template error: %w", err)
+	} else if isChanged || !t.inited { // need to re-init
+		if err := t.Init(); err != nil {
+			return fmt.Errorf("init error: %w", err)
+		}
+	}
+
+	if err := t.Run(); err != nil {
+		return fmt.Errorf("run error: %w", err)
+	}
+
+	return nil
+}
+
+func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) (bool, error) {
 	if globalVariables == nil {
 		globalVariables = make(map[string]string)
 	}
 
 	if len(t.ConfigVars) == 0 {
-		return nil
+		return false, nil
 	}
 
 	fm := template.FuncMap{}
@@ -744,29 +779,31 @@ func (t *HTTPTask) PrepareTemplate(globalVariables map[string]string) error {
 		fm[v.Name] = func() string {
 			return value
 		}
+
+		v.Value = value
 	}
 
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
 	if err != nil {
-		return fmt.Errorf("parse template error: %w", err)
+		return false, fmt.Errorf("parse template error: %w", err)
 	}
 	var buf strings.Builder
 	if err := tmpl.Execute(&buf, nil); err != nil {
-		return fmt.Errorf("execute template error: %w", err)
+		return false, fmt.Errorf("execute template error: %w", err)
 	}
 
 	parsedString := buf.String()
 
 	// no need to re-parse
 	if parsedString == t.parsedTaskJSONString {
-		return nil
+		return false, nil
 	}
 
 	t.parsedTaskJSONString = parsedString
 
 	if err := json.Unmarshal([]byte(parsedString), t); err != nil {
-		return fmt.Errorf("unmarshal parsed template error: %w", err)
+		return false, fmt.Errorf("unmarshal parsed template error: %w", err)
 	}
 
-	return nil
+	return true, nil
 }
