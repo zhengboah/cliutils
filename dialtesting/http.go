@@ -821,3 +821,22 @@ func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) error {
 
 	return nil
 }
+
+func (t *HTTPTask) GetVariableValue(variable Variable) (string, error) {
+	if variable.PostScript == "" || variable.TaskVarName == "" {
+		return "", fmt.Errorf("post_script or task variable name is empty")
+	}
+	if t.respBody == nil || t.resp == nil {
+		return "", fmt.Errorf("response body or response is empty")
+	}
+	if result, err := postScriptDo(t.PostScript, t.respBody, t.resp); err != nil {
+		return "", fmt.Errorf("run pipeline failed: %w", err)
+	} else {
+		value, ok := result.Vars[variable.TaskVarName]
+		if !ok {
+			return "", fmt.Errorf("task variable name not found")
+		} else {
+			return fmt.Sprintf("%v", value), nil
+		}
+	}
+}

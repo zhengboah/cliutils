@@ -62,6 +62,7 @@ type VariableTask interface {
 	SetTaskJSONString(string)
 	RenderTemplate(map[string]string) error
 	GetGlobalVars() []string
+	GetVariableValue(Variable) (string, error)
 }
 
 func getHostName(host string) (string, error) {
