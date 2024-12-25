@@ -423,6 +423,10 @@ func (t *WebsocketTask) GetOwnerExternalID() string {
 	return t.OwnerExternalID
 }
 
+func (t *WebsocketTask) GetExternalID() string {
+	return t.ExternalID
+}
+
 func (t *WebsocketTask) SetOwnerExternalID(exid string) {
 	t.OwnerExternalID = exid
 }

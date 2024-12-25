@@ -424,6 +424,10 @@ func (t *ICMPTask) GetOwnerExternalID() string {
 	return t.OwnerExternalID
 }
 
+func (t *ICMPTask) GetExternalID() string {
+	return t.ExternalID
+}
+
 func (t *ICMPTask) SetOwnerExternalID(exid string) {
 	t.OwnerExternalID = exid
 }

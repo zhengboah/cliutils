@@ -48,7 +48,7 @@ type Variable struct {
 	PostScript  string `json:"post_script,omitempty"`
 
 	UpdatedAt       int64  `json:"updated_at,omitempty"`
-	OwnerExternalID string `json:"-"`
+	OwnerExternalID string `json:"owner_external_id,omitempty"`
 	CreatedAt       int64  `json:"-"`
 	DeletedAt       int64  `json:"-"`
 }
@@ -128,6 +128,10 @@ func (t *HTTPTask) ID() string {
 
 func (t *HTTPTask) GetOwnerExternalID() string {
 	return t.OwnerExternalID
+}
+
+func (t *HTTPTask) GetExternalID() string {
+	return t.ExternalID
 }
 
 func (t *HTTPTask) SetOwnerExternalID(exid string) {
@@ -760,7 +764,7 @@ func (t *HTTPTask) GetGlobalVars() []string {
 }
 
 // RenderTempate render template and init task.
-func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) error {
+func (t *HTTPTask) RenderTemplate(globalVariables map[string]Variable) error {
 	defer func() {
 		if !t.inited {
 			t.init(false)
@@ -771,7 +775,7 @@ func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) error {
 	}
 
 	if globalVariables == nil {
-		globalVariables = make(map[string]string)
+		globalVariables = make(map[string]Variable)
 	}
 
 	if len(t.ConfigVars) == 0 {
@@ -783,8 +787,9 @@ func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) error {
 	for _, v := range t.ConfigVars {
 		value := v.Value
 		if v.Type == TypeVariableGlobal && v.ID != "" { // global variables
-			if v, ok := globalVariables[v.ID]; ok {
-				value = v
+			if gv, ok := globalVariables[v.ID]; ok {
+				value = gv.Value
+				v.Secure = gv.Secure
 			}
 		}
 
@@ -829,7 +834,7 @@ func (t *HTTPTask) GetVariableValue(variable Variable) (string, error) {
 	if t.respBody == nil || t.resp == nil {
 		return "", fmt.Errorf("response body or response is empty")
 	}
-	if result, err := postScriptDo(t.PostScript, t.respBody, t.resp); err != nil {
+	if result, err := postScriptDo(variable.PostScript, t.respBody, t.resp); err != nil {
 		return "", fmt.Errorf("run pipeline failed: %w", err)
 	} else {
 		value, ok := result.Vars[variable.TaskVarName]

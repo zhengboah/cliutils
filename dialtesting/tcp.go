@@ -381,6 +381,10 @@ func (t *TCPTask) GetOwnerExternalID() string {
 	return t.OwnerExternalID
 }
 
+func (t *TCPTask) GetExternalID() string {
+	return t.ExternalID
+}
+
 func (t *TCPTask) SetOwnerExternalID(exid string) {
 	t.OwnerExternalID = exid
 }

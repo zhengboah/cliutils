@@ -60,7 +60,7 @@ func (m *ScriptHTTPMessage) String() (string, error) {
 // bodyBytes is the body of the response and resp is the response from server.
 func postScriptDo(script string, bodyBytes []byte, resp *http.Response) (*ScriptResult, error) {
 	if script == "" || resp == nil {
-		return nil, nil
+		return &ScriptResult{}, nil
 	}
 
 	response := &ScriptHTTPRequestResponse{

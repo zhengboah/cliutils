@@ -43,6 +43,7 @@ type Task interface {
 	UpdateTimeUs() int64
 	GetFrequency() string
 	GetOwnerExternalID() string
+	GetExternalID() string
 	SetOwnerExternalID(string)
 	GetLineData() string
 	GetHostName() (string, error)
@@ -60,7 +61,7 @@ type Task interface {
 // VariableTask is a interface for variable task which can use variable in task.
 type VariableTask interface {
 	SetTaskJSONString(string)
-	RenderTemplate(map[string]string) error
+	RenderTemplate(map[string]Variable) error
 	GetGlobalVars() []string
 	GetVariableValue(Variable) (string, error)
 }
