@@ -60,8 +60,8 @@ type Task interface {
 // VariableTask is a interface for variable task which can use variable in task.
 type VariableTask interface {
 	SetTaskJSONString(string)
-	RunTemplate(map[string]string) error
-	RenderTemplate(map[string]string) (bool, error)
+	RenderTemplate(map[string]string) error
+	GetGlobalVars() []string
 }
 
 func getHostName(host string) (string, error) {

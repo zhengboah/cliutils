@@ -27,13 +27,15 @@ import (
 )
 
 type ConfigVar struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
+	ID      string `json:"id,omitempty"`
+	Type    string `json:"type,omitempty"`
 	Name    string `json:"name"`
-	Value   string `json:"value"`
-	Example string `json:"example"`
+	Value   string `json:"value,omitempty"`
+	Example string `json:"example,omitempty"`
 	Secure  bool   `json:"secure"`
 }
+
+var TypeVariableGlobal = "global"
 
 type Variable struct {
 	Id          int    `json:"id,omitempty"`
@@ -73,7 +75,7 @@ type HTTPTask struct {
 	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
 	UpdateTime        int64              `json:"update_time,omitempty"`
 	Option            map[string]string
-	ConfigVars        []ConfigVar `json:"config_vars,omitempty"`
+	ConfigVars        []*ConfigVar `json:"config_vars,omitempty"`
 
 	ticker               *time.Ticker
 	cli                  *http.Client
@@ -92,6 +94,7 @@ type HTTPTask struct {
 	sslTime        float64
 	ttfbTime       float64
 	downloadTime   float64
+	rawURL         string
 
 	destIP string
 	inited bool
@@ -183,13 +186,18 @@ func (t *HTTPTask) GetLineData() string {
 }
 
 func (t *HTTPTask) GetResults() (tags map[string]string, fields map[string]interface{}) {
+	if t.rawURL == "" {
+		t.rawURL = t.URL
+	}
+
 	tags = map[string]string{
-		"name":    t.Name,
-		"url":     t.URL,
-		"proto":   t.req.Proto,
-		"status":  "FAIL",
-		"method":  t.Method,
-		"dest_ip": t.destIP,
+		"name":         t.Name,
+		"url":          t.rawURL,
+		"proto":        t.req.Proto,
+		"status":       "FAIL",
+		"method":       t.Method,
+		"dest_ip":      t.destIP,
+		"resolved_url": t.URL,
 	}
 
 	fields = map[string]interface{}{
@@ -268,9 +276,9 @@ func (t *HTTPTask) GetResults() (tags map[string]string, fields map[string]inter
 	}
 
 	// add config_vars
-	vars := []Variable{}
+	vars := []ConfigVar{}
 	for _, v := range t.ConfigVars {
-		variable := Variable{
+		variable := ConfigVar{
 			Name:   v.Name,
 			Secure: v.Secure,
 		}
@@ -741,36 +749,40 @@ func (t *HTTPTask) GetTaskJSONString() string {
 	return t.taskJSONString
 }
 
-func (t *HTTPTask) RunTemplate(globalVariables map[string]string) error {
-	if isChanged, err := t.RenderTemplate(globalVariables); err != nil {
-		return fmt.Errorf("prepare template error: %w", err)
-	} else if isChanged || !t.inited { // need to re-init
-		if err := t.Init(); err != nil {
-			return fmt.Errorf("init error: %w", err)
+func (t *HTTPTask) GetGlobalVars() []string {
+	vars := []string{}
+	for _, v := range t.ConfigVars {
+		if v.Type == TypeVariableGlobal {
+			vars = append(vars, v.ID)
 		}
 	}
-
-	if err := t.Run(); err != nil {
-		return fmt.Errorf("run error: %w", err)
-	}
-
-	return nil
+	return vars
 }
 
-func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) (bool, error) {
+// RenderTempate render template and init task.
+func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) error {
+	defer func() {
+		if !t.inited {
+			t.init(false)
+		}
+	}()
+	if t.rawURL == "" {
+		t.rawURL = t.URL
+	}
+
 	if globalVariables == nil {
 		globalVariables = make(map[string]string)
 	}
 
 	if len(t.ConfigVars) == 0 {
-		return false, nil
+		return nil
 	}
 
 	fm := template.FuncMap{}
 
 	for _, v := range t.ConfigVars {
 		value := v.Value
-		if v.Type == "global" && v.ID != "" { // global variables
+		if v.Type == TypeVariableGlobal && v.ID != "" { // global variables
 			if v, ok := globalVariables[v.ID]; ok {
 				value = v
 			}
@@ -785,25 +797,27 @@ func (t *HTTPTask) RenderTemplate(globalVariables map[string]string) (bool, erro
 
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
 	if err != nil {
-		return false, fmt.Errorf("parse template error: %w", err)
+		return fmt.Errorf("parse template error: %w", err)
 	}
 	var buf strings.Builder
 	if err := tmpl.Execute(&buf, nil); err != nil {
-		return false, fmt.Errorf("execute template error: %w", err)
+		return fmt.Errorf("execute template error: %w", err)
 	}
 
 	parsedString := buf.String()
 
 	// no need to re-parse
 	if parsedString == t.parsedTaskJSONString {
-		return false, nil
+		return nil
 	}
 
 	t.parsedTaskJSONString = parsedString
 
 	if err := json.Unmarshal([]byte(parsedString), t); err != nil {
-		return false, fmt.Errorf("unmarshal parsed template error: %w", err)
+		return fmt.Errorf("unmarshal parsed template error: %w", err)
 	}
 
-	return true, nil
+	t.init(t.inited)
+
+	return nil
 }
