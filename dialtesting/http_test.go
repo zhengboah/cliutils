@@ -691,8 +691,11 @@ func addTestingRoutes(t *testing.T, r *gin.Engine, proxyServer *httptest.Server,
 }
 
 func TestPrepareTemplate(t *testing.T) {
-	globalVars := map[string]string{
-		"global_id": "global",
+	globalVars := map[string]Variable{
+		"global_id": {
+			Name: "global",
+			Value: "global",
+		},
 	}
 
 	task := HTTPTask{
@@ -746,7 +749,7 @@ func TestPostScript(t *testing.T) {
 	vars["token"] = body["token"]
 	`,
 	}
-	vars := map[string]string{}
+	vars := map[string]Variable{}
 	assert.NoError(t, task.RenderTemplate(vars))
 	assert.NoError(t, task.Run())
 
