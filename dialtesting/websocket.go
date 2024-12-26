@@ -210,7 +210,7 @@ func (t *WebsocketTask) getResults() (tags map[string]string, fields map[string]
 
 	message := map[string]interface{}{}
 
-	reasons, succFlag := t.CheckResult()
+	reasons, succFlag := t.checkResult()
 	if t.reqError != "" {
 		reasons = append(reasons, t.reqError)
 	}
@@ -376,4 +376,11 @@ func (t *WebsocketTask) getHostName() (string, error) {
 func basicAuth(username, password string) string {
 	auth := username + ":" + password
 	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func (t *WebsocketTask) beforeFirstRender() {
+}
+
+func (t *WebsocketTask) getVariableValue(variable Variable) (string, error) {
+	return "", fmt.Errorf("not support")
 }

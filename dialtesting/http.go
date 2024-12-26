@@ -30,6 +30,7 @@ type HTTPTask struct {
 	SuccessWhenLogic string             `json:"success_when_logic"`
 	SuccessWhen      []*HTTPSuccess     `json:"success_when"`
 	AdvanceOptions   *HTTPAdvanceOption `json:"advance_options,omitempty"`
+	Option           map[string]string
 
 	cli              *http.Client
 	resp             *http.Response

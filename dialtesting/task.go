@@ -81,6 +81,9 @@ func getHostName(host string) (string, error) {
 	return reqURL.Hostname(), nil
 }
 
+type ITask interface {
+}
+
 type Task struct {
 	ExternalID        string             `json:"external_id"`
 	Name              string             `json:"name"`
@@ -98,8 +101,7 @@ type Task struct {
 	DFLabel           string             `json:"df_label,omitempty"`
 	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
 	UpdateTime        int64              `json:"update_time,omitempty"`
-	Option            map[string]string
-	ConfigVars        []*ConfigVar `json:"config_vars,omitempty"`
+	ConfigVars        []*ConfigVar       `json:"config_vars,omitempty"`
 
 	ticker               *time.Ticker
 	taskJSONString       string
@@ -216,10 +218,6 @@ func (t *Task) Check() error {
 func (t *Task) Run() error {
 	t.Clear()
 	return t.child.run()
-}
-
-func (t *Task) CheckResult() (reasons []string, succFlag bool) {
-	return t.child.checkResult()
 }
 
 func (t *Task) InitDebug() error {

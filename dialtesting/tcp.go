@@ -103,7 +103,7 @@ func (t *TCPTask) check() error {
 	return nil
 }
 
-func (t *TCPTask) CheckResult() (reasons []string, succFlag bool) {
+func (t *TCPTask) checkResult() (reasons []string, succFlag bool) {
 	for _, chk := range t.SuccessWhen {
 		// check response time
 		if chk.ResponseTime != nil {
@@ -199,7 +199,7 @@ func (t *TCPTask) getResults() (tags map[string]string, fields map[string]interf
 
 	message := map[string]interface{}{}
 
-	reasons, succFlag := t.CheckResult()
+	reasons, succFlag := t.checkResult()
 	if t.reqError != "" {
 		reasons = append(reasons, t.reqError)
 	}
@@ -327,4 +327,12 @@ func (t *TCPTask) class() string {
 
 func (t *TCPTask) getHostName() (string, error) {
 	return t.Host, nil
+}
+
+
+func (t *TCPTask) beforeFirstRender() {
+}
+
+func (t *TCPTask) getVariableValue(variable Variable) (string, error) {
+	return "", fmt.Errorf("not support")
 }

@@ -229,7 +229,7 @@ func (t *ICMPTask) getResults() (tags map[string]string, fields map[string]inter
 
 	message := map[string]interface{}{}
 
-	reasons, succFlag := t.CheckResult()
+	reasons, succFlag := t.checkResult()
 	if t.reqError != "" {
 		reasons = append(reasons, t.reqError)
 	}
@@ -391,4 +391,12 @@ func (t *ICMPTask) checkSum(data []byte) (rt uint16) {
 
 func (t *ICMPTask) getHostName() (string, error) {
 	return t.Host, nil
+}
+
+
+func (t *ICMPTask) beforeFirstRender() {
+}
+
+func (t *ICMPTask) getVariableValue(variable Variable) (string, error) {
+	return "", fmt.Errorf("not support")
 }
