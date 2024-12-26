@@ -32,7 +32,9 @@ var icmpCases = []struct {
 					},
 				},
 			},
-			ExternalID: "xxxx", Frequency: "10s", Name: "success-ipv4",
+			Task: Task{
+				ExternalID: "xxxx", Frequency: "10s", Name: "success-ipv4",
+			},
 		},
 	},
 	{
@@ -52,7 +54,9 @@ var icmpCases = []struct {
 					},
 				},
 			},
-			ExternalID: "xxxx", Frequency: "10s", Name: "success-ipv6",
+			Task: Task{
+				ExternalID: "xxxx", Frequency: "10s", Name: "success-ipv6",
+			},
 		},
 	},
 }

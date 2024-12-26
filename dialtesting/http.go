@@ -20,74 +20,25 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"strings"
-	"text/template"
 	"time"
-
-	"github.com/GuanceCloud/cliutils"
 )
 
-type ConfigVar struct {
-	ID      string `json:"id,omitempty"`
-	Type    string `json:"type,omitempty"`
-	Name    string `json:"name"`
-	Value   string `json:"value,omitempty"`
-	Example string `json:"example,omitempty"`
-	Secure  bool   `json:"secure"`
-}
-
-var TypeVariableGlobal = "global"
-
-type Variable struct {
-	Id          int    `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	UUID        string `json:"uuid,omitempty"`
-	TaskID      string `json:"task_id,omitempty"`
-	TaskVarName string `json:"task_var_name,omitempty"`
-	Value       string `json:"value,omitempty"`
-	Secure      bool   `json:"secure,omitempty"`
-	PostScript  string `json:"post_script,omitempty"`
-
-	UpdatedAt       int64  `json:"updated_at,omitempty"`
-	OwnerExternalID string `json:"owner_external_id,omitempty"`
-	CreatedAt       int64  `json:"-"`
-	DeletedAt       int64  `json:"-"`
-}
-
 type HTTPTask struct {
-	ExternalID        string             `json:"external_id"`
-	Name              string             `json:"name"`
-	AK                string             `json:"access_key"`
-	Method            string             `json:"method"`
-	URL               string             `json:"url"`
-	PostURL           string             `json:"post_url"`
-	CurStatus         string             `json:"status"`
-	Frequency         string             `json:"frequency"`
-	PostScript        string             `json:"post_script,omitempty"`
-	Region            string             `json:"region"`
-	OwnerExternalID   string             `json:"owner_external_id"`
-	SuccessWhenLogic  string             `json:"success_when_logic"`
-	SuccessWhen       []*HTTPSuccess     `json:"success_when"`
-	Tags              map[string]string  `json:"tags,omitempty"`
-	Labels            []string           `json:"labels,omitempty"`
-	WorkspaceLanguage string             `json:"workspace_language,omitempty"`
-	TagsInfo          string             `json:"tags_info,omitempty"` // deprecated
-	DFLabel           string             `json:"df_label,omitempty"`
-	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
-	UpdateTime        int64              `json:"update_time,omitempty"`
-	Option            map[string]string
-	ConfigVars        []*ConfigVar `json:"config_vars,omitempty"`
+	Task
+	URL              string             `json:"url"`
+	PostScript       string             `json:"post_script,omitempty"`
+	SuccessWhenLogic string             `json:"success_when_logic"`
+	SuccessWhen      []*HTTPSuccess     `json:"success_when"`
+	AdvanceOptions   *HTTPAdvanceOption `json:"advance_options,omitempty"`
 
-	ticker               *time.Ticker
-	cli                  *http.Client
-	resp                 *http.Response
-	req                  *http.Request
-	respBody             []byte
-	reqStart             time.Time
-	reqCost              time.Duration
-	reqError             string
-	postScriptResult     *ScriptResult
-	taskJSONString       string
-	parsedTaskJSONString string
+	cli              *http.Client
+	resp             *http.Response
+	req              *http.Request
+	respBody         []byte
+	reqStart         time.Time
+	reqCost          time.Duration
+	reqError         string
+	postScriptResult *ScriptResult
 
 	dnsParseTime   float64
 	connectionTime float64
@@ -97,16 +48,9 @@ type HTTPTask struct {
 	rawURL         string
 
 	destIP string
-	inited bool
 }
 
-const MaxMsgSize = 15 * 1024 * 1024
-
-func (t *HTTPTask) UpdateTimeUs() int64 {
-	return t.UpdateTime
-}
-
-func (t *HTTPTask) Clear() {
+func (t *HTTPTask) clear() {
 	t.dnsParseTime = 0.0
 	t.connectionTime = 0.0
 	t.sslTime = 0.0
@@ -119,77 +63,22 @@ func (t *HTTPTask) Clear() {
 	t.reqError = ""
 }
 
-func (t *HTTPTask) ID() string {
-	if t.ExternalID == `` {
-		return cliutils.XID("dtst_")
-	}
-	return fmt.Sprintf("%s_%s", t.AK, t.ExternalID)
-}
-
-func (t *HTTPTask) GetOwnerExternalID() string {
-	return t.OwnerExternalID
-}
-
-func (t *HTTPTask) GetExternalID() string {
-	return t.ExternalID
-}
-
-func (t *HTTPTask) SetOwnerExternalID(exid string) {
-	t.OwnerExternalID = exid
-}
-
-func (t *HTTPTask) SetRegionID(regionID string) {
-	t.Region = regionID
-}
-
-func (t *HTTPTask) SetAk(ak string) {
-	t.AK = ak
-}
-
-func (t *HTTPTask) SetStatus(status string) {
-	t.CurStatus = status
-}
-
-func (t *HTTPTask) SetUpdateTime(ts int64) {
-	t.UpdateTime = ts
-}
-
-func (t *HTTPTask) Stop() error {
+func (t *HTTPTask) stop() error {
 	if t.cli != nil {
 		t.cli.CloseIdleConnections()
 	}
 	return nil
 }
 
-func (t *HTTPTask) Status() string {
-	return t.CurStatus
-}
-
-func (t *HTTPTask) Ticker() *time.Ticker {
-	return t.ticker
-}
-
-func (t *HTTPTask) Class() string {
+func (t *HTTPTask) class() string {
 	return "HTTP"
 }
 
-func (t *HTTPTask) MetricName() string {
+func (t *HTTPTask) metricName() string {
 	return `http_dial_testing`
 }
 
-func (t *HTTPTask) PostURLStr() string {
-	return t.PostURL
-}
-
-func (t *HTTPTask) GetFrequency() string {
-	return t.Frequency
-}
-
-func (t *HTTPTask) GetLineData() string {
-	return ""
-}
-
-func (t *HTTPTask) GetResults() (tags map[string]string, fields map[string]interface{}) {
+func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]interface{}) {
 	if t.rawURL == "" {
 		t.rawURL = t.URL
 	}
@@ -300,23 +189,6 @@ func (t *HTTPTask) GetResults() (tags map[string]string, fields map[string]inter
 	return tags, fields
 }
 
-func (t *HTTPTask) RegionName() string {
-	return t.Region
-}
-
-func (t *HTTPTask) AccessKey() string {
-	return t.AK
-}
-
-func (t *HTTPTask) Check() error {
-	// TODO: check task validity
-	if t.ExternalID == "" {
-		return fmt.Errorf("external ID missing")
-	}
-
-	return t.Init()
-}
-
 type HTTPSuccess struct {
 	Body []*SuccessOption `json:"body,omitempty"`
 
@@ -371,9 +243,7 @@ type HTTPSecret struct {
 	NoSaveResponseBody bool `json:"not_save,omitempty"`
 }
 
-func (t *HTTPTask) Run() error {
-	t.Clear()
-
+func (t *HTTPTask) run() error {
 	var t1, connect, dns, tlsHandshake time.Time
 	var body io.Reader = nil
 
@@ -466,7 +336,11 @@ result:
 	return err
 }
 
-func (t *HTTPTask) CheckResult() (reasons []string, succFlag bool) {
+func (t *HTTPTask) check() error {
+	return nil
+}
+
+func (t *HTTPTask) checkResult() (reasons []string, succFlag bool) {
 	if t.resp == nil {
 		return nil, true
 	}
@@ -575,34 +449,11 @@ func (t *HTTPTask) setupAdvanceOpts(req *http.Request) error {
 	return nil
 }
 
-func (t *HTTPTask) InitDebug() error {
-	return t.init(true)
-}
-
-func (t *HTTPTask) Init() error {
-	return t.init(false)
-}
-
-func (t *HTTPTask) init(debug bool) error {
+func (t *HTTPTask) init() error {
 	httpTimeout := 30 * time.Second // default timeout
-	if !debug {
-		// setup frequency
-		du, err := time.ParseDuration(t.Frequency)
-		if err != nil {
-			return err
-		}
-		if t.ticker != nil {
-			t.ticker.Stop()
-		}
-		t.ticker = time.NewTicker(du)
-	}
 
 	if t.Option == nil {
 		t.Option = map[string]string{}
-	}
-
-	if strings.EqualFold(t.CurStatus, StatusStop) {
-		return nil
 	}
 
 	// advance options
@@ -722,112 +573,14 @@ func (t *HTTPTask) init(debug bool) error {
 		}
 	}
 
-	// TODO: more checking on task validity
-	t.inited = true
 	return nil
 }
 
-func (t *HTTPTask) GetHostName() (string, error) {
+func (t *HTTPTask) getHostName() (string, error) {
 	return getHostName(t.URL)
 }
 
-func (t *HTTPTask) GetWorkspaceLanguage() string {
-	if t.WorkspaceLanguage == "en" {
-		return "en"
-	}
-	return "zh"
-}
-
-func (t *HTTPTask) GetDFLabel() string {
-	if t.DFLabel != "" {
-		return t.DFLabel
-	}
-	return t.TagsInfo
-}
-
-func (t *HTTPTask) SetTaskJSONString(s string) {
-	t.taskJSONString = s
-}
-
-func (t *HTTPTask) GetTaskJSONString() string {
-	return t.taskJSONString
-}
-
-func (t *HTTPTask) GetGlobalVars() []string {
-	vars := []string{}
-	for _, v := range t.ConfigVars {
-		if v.Type == TypeVariableGlobal {
-			vars = append(vars, v.ID)
-		}
-	}
-	return vars
-}
-
-// RenderTempate render template and init task.
-func (t *HTTPTask) RenderTemplate(globalVariables map[string]Variable) error {
-	defer func() {
-		if !t.inited {
-			t.init(false)
-		}
-	}()
-	if t.rawURL == "" {
-		t.rawURL = t.URL
-	}
-
-	if globalVariables == nil {
-		globalVariables = make(map[string]Variable)
-	}
-
-	if len(t.ConfigVars) == 0 {
-		return nil
-	}
-
-	fm := template.FuncMap{}
-
-	for _, v := range t.ConfigVars {
-		value := v.Value
-		if v.Type == TypeVariableGlobal && v.ID != "" { // global variables
-			if gv, ok := globalVariables[v.ID]; ok {
-				value = gv.Value
-				v.Secure = gv.Secure
-			}
-		}
-
-		fm[v.Name] = func() string {
-			return value
-		}
-
-		v.Value = value
-	}
-
-	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
-	if err != nil {
-		return fmt.Errorf("parse template error: %w", err)
-	}
-	var buf strings.Builder
-	if err := tmpl.Execute(&buf, nil); err != nil {
-		return fmt.Errorf("execute template error: %w", err)
-	}
-
-	parsedString := buf.String()
-
-	// no need to re-parse
-	if parsedString == t.parsedTaskJSONString {
-		return nil
-	}
-
-	t.parsedTaskJSONString = parsedString
-
-	if err := json.Unmarshal([]byte(parsedString), t); err != nil {
-		return fmt.Errorf("unmarshal parsed template error: %w", err)
-	}
-
-	t.init(t.inited)
-
-	return nil
-}
-
-func (t *HTTPTask) GetVariableValue(variable Variable) (string, error) {
+func (t *HTTPTask) getVariableValue(variable Variable) (string, error) {
 	if variable.PostScript == "" || variable.TaskVarName == "" {
 		return "", fmt.Errorf("post_script or task variable name is empty")
 	}
@@ -844,4 +597,8 @@ func (t *HTTPTask) GetVariableValue(variable Variable) (string, error) {
 			return fmt.Sprintf("%v", value), nil
 		}
 	}
+}
+
+func (t *HTTPTask) beforeFirstRender() {
+	t.rawURL = t.URL
 }
