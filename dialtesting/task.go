@@ -82,6 +82,42 @@ func getHostName(host string) (string, error) {
 }
 
 type ITask interface {
+	ID() string
+	Status() string
+	Run() error
+	Init() error
+	InitDebug() error
+	CheckResult() ([]string, bool)
+	Class() string
+	GetResults() (map[string]string, map[string]interface{})
+	PostURLStr() string
+	MetricName() string
+	Stop() error
+	RegionName() string
+	AccessKey() string
+	Check() error
+	UpdateTimeUs() int64
+	GetFrequency() string
+	GetOwnerExternalID() string
+	GetExternalID() string
+	SetOwnerExternalID(string)
+	GetLineData() string
+	GetHostName() (string, error)
+	GetWorkspaceLanguage() string
+	GetDFLabel() string
+
+	SetRegionID(string)
+	SetAk(string)
+	SetStatus(string)
+	SetUpdateTime(int64)
+	SetChild(TaskChild)
+	SetTaskJSONString(string)
+
+	GetVariableValue(Variable) (string, error)
+	GetGlobalVars() []string
+	RenderTemplate(globalVariables map[string]Variable) error
+
+	Ticker() *time.Ticker
 }
 
 type Task struct {
@@ -109,6 +145,17 @@ type Task struct {
 	child                TaskChild
 
 	inited bool
+}
+
+func NewTask(child any) (ITask, error) {
+	if t, ok := child.(ITask); !ok {
+		return nil, fmt.Errorf("invalid task")
+	} else if ct, ok := child.(TaskChild); !ok {
+		return nil, fmt.Errorf("invalid child task")
+	} else {
+		t.SetChild(ct)
+		return t, nil
+	}
 }
 
 func (t *Task) SetChild(child TaskChild) {
@@ -354,4 +401,8 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 
 func (t *Task) GetVariableValue(variable Variable) (string, error) {
 	return t.child.getVariableValue(variable)
+}
+
+func (t *Task) CheckResult() ([]string, bool) {
+	return t.child.checkResult()
 }

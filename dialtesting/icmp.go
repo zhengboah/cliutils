@@ -393,7 +393,6 @@ func (t *ICMPTask) getHostName() (string, error) {
 	return t.Host, nil
 }
 
-
 func (t *ICMPTask) beforeFirstRender() {
 }
 
