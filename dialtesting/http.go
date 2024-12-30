@@ -26,6 +26,7 @@ import (
 type HTTPTask struct {
 	Task
 	URL              string             `json:"url"`
+	Method           string             `json:"method"`
 	PostScript       string             `json:"post_script,omitempty"`
 	SuccessWhenLogic string             `json:"success_when_logic"`
 	SuccessWhen      []*HTTPSuccess     `json:"success_when"`

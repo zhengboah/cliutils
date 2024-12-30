@@ -124,7 +124,6 @@ type Task struct {
 	ExternalID        string             `json:"external_id"`
 	Name              string             `json:"name"`
 	AK                string             `json:"access_key"`
-	Method            string             `json:"method"`
 	PostURL           string             `json:"post_url"`
 	CurStatus         string             `json:"status"`
 	Frequency         string             `json:"frequency"`
