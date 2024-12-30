@@ -27,6 +27,8 @@ const (
 	ClassDNS       = "DNS"
 	ClassHeadless  = "BROWSER"
 	ClassOther     = "OTHER"
+	ClassWait      = "WAIT"
+	ClassMulti     = "MULTI"
 
 	MaxMsgSize = 15 * 1024 * 1024
 )
@@ -143,7 +145,8 @@ type Task struct {
 	parsedTaskJSONString string
 	child                TaskChild
 
-	inited bool
+	inited     bool
+	globalVars map[string]Variable
 }
 
 func NewTask(child any) (ITask, error) {
@@ -274,6 +277,7 @@ func (t *Task) init(debug bool) error {
 	defer func() {
 		t.inited = true
 	}()
+
 	if !debug {
 		du, err := time.ParseDuration(t.Frequency)
 		if err != nil {
@@ -290,7 +294,6 @@ func (t *Task) init(debug bool) error {
 	}
 
 	return t.child.init()
-
 }
 
 func (t *Task) Init() error {
@@ -335,12 +338,6 @@ func (t *Task) GetGlobalVars() []string {
 
 // RenderTempate render template and init task.
 func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
-	defer func() {
-		if !t.inited {
-			t.init(false)
-		}
-	}()
-
 	if !t.inited {
 		t.child.beforeFirstRender()
 	}
@@ -348,6 +345,8 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 	if globalVariables == nil {
 		globalVariables = make(map[string]Variable)
 	}
+
+	t.globalVars = globalVariables
 
 	if len(t.ConfigVars) == 0 {
 		return nil
@@ -369,6 +368,12 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 		}
 
 		v.Value = value
+	}
+
+	// multi task does not need to render template
+	// render template only for its child task
+	if t.Class() == ClassMulti {
+		return nil
 	}
 
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
@@ -393,9 +398,7 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 		return fmt.Errorf("unmarshal parsed template error: %w", err)
 	}
 
-	t.init(t.inited)
-
-	return nil
+	return t.init(t.inited)
 }
 
 func (t *Task) GetVariableValue(variable Variable) (string, error) {

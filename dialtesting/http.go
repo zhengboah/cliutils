@@ -73,7 +73,7 @@ func (t *HTTPTask) stop() error {
 }
 
 func (t *HTTPTask) class() string {
-	return "HTTP"
+	return ClassHTTP 
 }
 
 func (t *HTTPTask) metricName() string {
