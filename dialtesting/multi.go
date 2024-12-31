@@ -8,6 +8,7 @@ package dialtesting
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 type MultiStepRetry struct {
@@ -19,6 +20,7 @@ type MultiExtractedVar struct {
 	Name   string `json:"name"`
 	Field  string `json:"field"`
 	Secure bool   `json:"secure"`
+	Value  string `json:"value,omitempty"`
 }
 
 type MultiStep struct {
@@ -29,15 +31,16 @@ type MultiStep struct {
 	Value         int                 `json:"value,omitempty"` // wait seconds for wait task
 	ExtractedVars []MultiExtractedVar `json:"extracted_vars,omitempty"`
 
-	task ITask
+	result map[string]interface{}
 }
 
 type MultiTask struct {
 	Task
 	Steps []*MultiStep `json:"steps"`
 
-	reqError    error
-	stepResults []map[string]interface{}
+	duration      time.Duration
+	extractedVars []MultiExtractedVar
+	lastStep      int
 }
 
 func (t *MultiTask) clear() {
@@ -56,35 +59,103 @@ func (t *MultiTask) metricName() string {
 }
 
 func (t *MultiTask) getResults() (tags map[string]string, fields map[string]interface{}) {
-	bytes, _ := json.Marshal(t.Task.ConfigVars)
-	fields[`config_vars`] = string(bytes)
+	fields = map[string]interface{}{
+		"success": -1,
+	}
+
+	tags = map[string]string{
+		"status": "FAIL",
+	}
+	for k, v := range t.Tags {
+		tags[k] = v
+	}
+
+	if t.lastStep > -1 {
+		step := t.Steps[t.lastStep]
+		if step.result != nil {
+			if step.result["status"] == "OK" {
+				tags["status"] = "OK"
+				fields["success"] = 1
+			}
+			fields["message"] = step.result["message"]
+		}
+		tags["status"] = "OK"
+	}
+
+	steps := []map[string]interface{}{}
+
+	for _, s := range t.Steps {
+		// extraced vars
+		extractedVars := []MultiExtractedVar{}
+		for _, v := range s.ExtractedVars {
+			ev := MultiExtractedVar{
+				Name:   v.Name,
+				Field:  v.Field,
+				Secure: v.Secure,
+			}
+
+			if !v.Secure {
+				ev.Value = v.Value
+			}
+
+			extractedVars = append(extractedVars, ev)
+		}
+
+		s.result["extracted_vars"] = extractedVars
+
+		steps = append(steps, s.result)
+	}
+
+	bytes, _ := json.Marshal(steps)
+	fields["steps"] = string(bytes)
+
+	fields = map[string]interface{}{
+		"duration": t.duration.Microseconds(), // us
+	}
 
 	return tags, fields
 }
 
 func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error) {
+	var err error
+	runCount := 0
+	maxCount := 1
+	interval := time.Millisecond
+
 	result := map[string]interface{}{}
 	if step == nil {
 		return nil, fmt.Errorf("step should not be nil")
 	}
-	task := HTTPTask{}
-	if err := json.Unmarshal([]byte(step.TaskString), &task); err != nil {
-		return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
-	}
 
-	err := task.RenderTemplate(t.globalVars)
-	if err != nil {
-		err = fmt.Errorf("init http step task failed: %w", err)
-	} else {
-		err = task.Run()
-		if err != nil {
-			err = fmt.Errorf("run http step task failed: %w", err)
+	if step.Retry != nil {
+		if step.Retry.Retry > 0 {
+			maxCount = step.Retry.Retry + 1
 		}
+		interval = time.Duration(step.Retry.Interval) * time.Millisecond
 	}
 
-	if err != nil {
-		if step.AllowFailure {
-			err = nil
+	for runCount < maxCount {
+		task := HTTPTask{}
+		if err := json.Unmarshal([]byte(step.TaskString), &task); err != nil {
+			return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
+		}
+
+		for _, v := range t.extractedVars {
+			task.AddExtractedVar(&ConfigVar{
+				Name:   v.Name,
+				Secure: v.Secure,
+				Value:  v.Value,
+			})
+		}
+
+		err = task.RenderTemplate(t.globalVars)
+		if err != nil {
+			err = fmt.Errorf("init http step task failed: %w", err)
+		} else {
+			err = task.Run()
+			if err != nil {
+				err = fmt.Errorf("run http step task failed: %w", err)
+			}
 			tags, fields := task.GetResults()
 			for k, v := range tags {
 				result[k] = v
@@ -93,26 +164,57 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 				result[k] = v
 			}
 		}
+
+		if task.postScriptResult != nil { // set extracted vars
+			for i, v := range step.ExtractedVars {
+				value, ok := task.postScriptResult.Vars[v.Name]
+				if ok {
+					step.ExtractedVars[i].Value = fmt.Sprintf("%v", value)
+				}
+
+				// set extracted vars, which can be used in next step
+				t.extractedVars = append(t.extractedVars, v)
+			}
+
+		}
+
+		runCount++
+		if runCount < maxCount {
+			time.Sleep(interval)
+		}
+	}
+
+	if len(result) > 0 && result["status"] != "OK" && step.AllowFailure {
+		err = nil
 	}
 
 	return result, err
 }
 
 func (t *MultiTask) run() error {
-
-	results := []map[string]interface{}{}
-
-	for _, step := range t.Steps {
-		if step.Type == "http" {
+	now := time.Now()
+	lastStep := -1 // last step which is not wait
+	for i, step := range t.Steps {
+		switch step.Type {
+		case "http":
+			if i > lastStep {
+				lastStep = i
+			}
 			if result, err := t.runHTTPStep(step); err != nil {
 				return fmt.Errorf("run http step task failed: %w", err)
 			} else {
-				results = append(results, result)
+				step.result = result
 			}
+		case "wait":
+			time.Sleep(time.Duration(step.Value) * time.Second)
+
+		default:
+			return fmt.Errorf("step type should be wait or http")
 		}
 	}
 
-	t.stepResults = results
+	t.duration = time.Since(now)
+	t.lastStep = lastStep
 
 	return nil
 }

@@ -139,6 +139,7 @@ type Task struct {
 	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
 	UpdateTime        int64              `json:"update_time,omitempty"`
 	ConfigVars        []*ConfigVar       `json:"config_vars,omitempty"`
+	ExtractedVars     []*ConfigVar
 
 	ticker               *time.Ticker
 	taskJSONString       string
@@ -170,6 +171,7 @@ func (t *Task) UpdateTimeUs() int64 {
 
 func (t *Task) Clear() {
 	t.child.clear()
+	t.ExtractedVars = t.ExtractedVars[:0]
 }
 
 func (t *Task) ID() string {
@@ -240,7 +242,27 @@ func (t *Task) GetLineData() string {
 }
 
 func (t *Task) GetResults() (tags map[string]string, fields map[string]interface{}) {
-	return t.child.getResults()
+	tags, fields = t.child.getResults()
+
+	// add config_vars
+	vars := []ConfigVar{}
+	for _, v := range t.ConfigVars {
+		variable := ConfigVar{
+			Name:   v.Name,
+			Secure: v.Secure,
+		}
+
+		if !v.Secure {
+			variable.Value = v.Value
+		}
+
+		vars = append(vars, variable)
+	}
+
+	bytes, _ := json.Marshal(vars)
+	fields[`config_vars`] = string(bytes)
+
+	return tags, fields
 }
 
 func (t *Task) RegionName() string {
@@ -354,7 +376,9 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 
 	fm := template.FuncMap{}
 
-	for _, v := range t.ConfigVars {
+	allVars := append(t.ConfigVars, t.ExtractedVars...)
+
+	for _, v := range allVars {
 		value := v.Value
 		if v.Type == TypeVariableGlobal && v.ID != "" { // global variables
 			if gv, ok := globalVariables[v.ID]; ok {
@@ -399,6 +423,17 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 	}
 
 	return t.init(t.inited)
+}
+
+func (t *Task) AddExtractedVar(v *ConfigVar) {
+	if v == nil {
+		return
+	}
+	if t.ExtractedVars == nil {
+		t.ExtractedVars = []*ConfigVar{}
+	}
+
+	t.ExtractedVars = append(t.ExtractedVars, v)
 }
 
 func (t *Task) GetVariableValue(variable Variable) (string, error) {

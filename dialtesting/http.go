@@ -73,7 +73,7 @@ func (t *HTTPTask) stop() error {
 }
 
 func (t *HTTPTask) class() string {
-	return ClassHTTP 
+	return ClassHTTP
 }
 
 func (t *HTTPTask) metricName() string {
@@ -170,23 +170,6 @@ func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]inter
 		fields[`message`] = string(data)
 	}
 
-	// add config_vars
-	vars := []ConfigVar{}
-	for _, v := range t.ConfigVars {
-		variable := ConfigVar{
-			Name:   v.Name,
-			Secure: v.Secure,
-		}
-
-		if !v.Secure {
-			variable.Value = v.Value
-		}
-
-		vars = append(vars, variable)
-	}
-
-	bytes, _ := json.Marshal(vars)
-	fields[`config_vars`] = string(bytes)
 
 	return tags, fields
 }
@@ -583,21 +566,37 @@ func (t *HTTPTask) getHostName() (string, error) {
 }
 
 func (t *HTTPTask) getVariableValue(variable Variable) (string, error) {
-	if variable.PostScript == "" || variable.TaskVarName == "" {
-		return "", fmt.Errorf("post_script or task variable name is empty")
+	if variable.PostScript == "" && t.PostScript == "" {
+		return "", fmt.Errorf("post_script is empty")
 	}
+
+	if variable.TaskVarName == "" {
+		return "", fmt.Errorf("task variable name is empty")
+	}
+
 	if t.respBody == nil || t.resp == nil {
 		return "", fmt.Errorf("response body or response is empty")
 	}
-	if result, err := postScriptDo(variable.PostScript, t.respBody, t.resp); err != nil {
-		return "", fmt.Errorf("run pipeline failed: %w", err)
-	} else {
-		value, ok := result.Vars[variable.TaskVarName]
-		if !ok {
-			return "", fmt.Errorf("task variable name not found")
-		} else {
-			return fmt.Sprintf("%v", value), nil
+
+	var result *ScriptResult
+	var err error
+	if variable.PostScript == "" { // use task post script
+		result = t.postScriptResult
+	} else { // use task variable post script
+		if result, err = postScriptDo(variable.PostScript, t.respBody, t.resp); err != nil {
+			return "", fmt.Errorf("run pipeline failed: %w", err)
 		}
+	}
+
+	if result == nil {
+		return "", fmt.Errorf("pipeline result is empty")
+	}
+
+	value, ok := result.Vars[variable.TaskVarName]
+	if !ok {
+		return "", fmt.Errorf("task variable name not found")
+	} else {
+		return fmt.Sprintf("%v", value), nil
 	}
 }
 
