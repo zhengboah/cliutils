@@ -88,7 +88,6 @@ type ITask interface {
 	Status() string
 	Run() error
 	Init() error
-	InitDebug() error
 	CheckResult() ([]string, bool)
 	Class() string
 	GetResults() (map[string]string, map[string]interface{})
@@ -118,6 +117,7 @@ type ITask interface {
 	GetVariableValue(Variable) (string, error)
 	GetGlobalVars() []string
 	RenderTemplate(globalVariables map[string]Variable) error
+	AddExtractedVar(*ConfigVar)
 
 	Ticker() *time.Ticker
 }
@@ -259,8 +259,12 @@ func (t *Task) GetResults() (tags map[string]string, fields map[string]interface
 		vars = append(vars, variable)
 	}
 
+	// config_vars
 	bytes, _ := json.Marshal(vars)
 	fields[`config_vars`] = string(bytes)
+
+	// task
+	fields["task"] = t.taskJSONString
 
 	return tags, fields
 }
@@ -279,11 +283,16 @@ func (t *Task) Check() error {
 		return fmt.Errorf("external ID missing")
 	}
 
+	_, err := time.ParseDuration(t.Frequency)
+	if err != nil {
+		return err
+	}
+
 	if err := t.child.check(); err != nil {
 		return err
 	}
 
-	return t.init(false)
+	return t.init()
 }
 
 func (t *Task) Run() error {
@@ -291,25 +300,24 @@ func (t *Task) Run() error {
 	return t.child.run()
 }
 
-func (t *Task) InitDebug() error {
-	return t.init(true)
+func (t *Task) GetTicker() (*time.Ticker, error) {
+	du, err := time.ParseDuration(t.Frequency)
+	if err != nil {
+		return nil, err
+	}
+
+	if t.ticker != nil {
+		t.ticker.Stop()
+		t.ticker = time.NewTicker(du)
+	}
+
+	return t.ticker, nil
 }
 
-func (t *Task) init(debug bool) error {
+func (t *Task) init() error {
 	defer func() {
 		t.inited = true
 	}()
-
-	if !debug {
-		du, err := time.ParseDuration(t.Frequency)
-		if err != nil {
-			return err
-		}
-		if t.ticker != nil {
-			t.ticker.Stop()
-		}
-		t.ticker = time.NewTicker(du)
-	}
 
 	if strings.EqualFold(t.CurStatus, StatusStop) {
 		return nil
@@ -319,7 +327,7 @@ func (t *Task) init(debug bool) error {
 }
 
 func (t *Task) Init() error {
-	return t.init(false)
+	return t.init()
 }
 
 func (t *Task) GetHostName() (string, error) {
@@ -360,6 +368,7 @@ func (t *Task) GetGlobalVars() []string {
 
 // RenderTempate render template and init task.
 func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
+	// first render
 	if !t.inited {
 		t.child.beforeFirstRender()
 	}
@@ -369,10 +378,6 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 	}
 
 	t.globalVars = globalVariables
-
-	if len(t.ConfigVars) == 0 {
-		return nil
-	}
 
 	fm := template.FuncMap{}
 
@@ -412,17 +417,14 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 	parsedString := buf.String()
 
 	// no need to re-parse
-	if parsedString == t.parsedTaskJSONString {
-		return nil
+	if parsedString != t.parsedTaskJSONString {
+		t.parsedTaskJSONString = parsedString
+		if err := json.Unmarshal([]byte(parsedString), t.child); err != nil {
+			return fmt.Errorf("unmarshal parsed template error: %w", err)
+		}
 	}
 
-	t.parsedTaskJSONString = parsedString
-
-	if err := json.Unmarshal([]byte(parsedString), t.child); err != nil {
-		return fmt.Errorf("unmarshal parsed template error: %w", err)
-	}
-
-	return t.init(t.inited)
+	return t.init()
 }
 
 func (t *Task) AddExtractedVar(v *ConfigVar) {

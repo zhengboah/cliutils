@@ -79,7 +79,6 @@ func (t *MultiTask) getResults() (tags map[string]string, fields map[string]inte
 			}
 			fields["message"] = step.result["message"]
 		}
-		tags["status"] = "OK"
 	}
 
 	steps := []map[string]interface{}{}
@@ -100,24 +99,25 @@ func (t *MultiTask) getResults() (tags map[string]string, fields map[string]inte
 
 			extractedVars = append(extractedVars, ev)
 		}
-
-		s.result["extracted_vars"] = extractedVars
-
-		steps = append(steps, s.result)
+		result := map[string]interface{}{}
+		if s.result != nil {
+			for k, v := range s.result {
+				result[k] = v
+			}
+		}
+		result["extracted_vars"] = extractedVars
+		steps = append(steps, result)
 	}
 
 	bytes, _ := json.Marshal(steps)
 	fields["steps"] = string(bytes)
-
-	fields = map[string]interface{}{
-		"duration": t.duration.Microseconds(), // us
-	}
 
 	return tags, fields
 }
 
 func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error) {
 	var err error
+	var task ITask
 	runCount := 0
 	maxCount := 1
 	interval := time.Millisecond
@@ -135,9 +135,14 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 	}
 
 	for runCount < maxCount {
-		task := HTTPTask{}
-		if err := json.Unmarshal([]byte(step.TaskString), &task); err != nil {
+		httpTask := HTTPTask{}
+		if err = json.Unmarshal([]byte(step.TaskString), &httpTask); err != nil {
 			return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
+		}
+
+		task, err = NewTask(&httpTask)
+		if err != nil {
+			return nil, fmt.Errorf("new task failed: %w", err)
 		}
 
 		for _, v := range t.extractedVars {
@@ -165,9 +170,9 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 			}
 		}
 
-		if task.postScriptResult != nil { // set extracted vars
+		if httpTask.postScriptResult != nil { // set extracted vars
 			for i, v := range step.ExtractedVars {
-				value, ok := task.postScriptResult.Vars[v.Name]
+				value, ok := httpTask.postScriptResult.Vars[v.Name]
 				if ok {
 					step.ExtractedVars[i].Value = fmt.Sprintf("%v", value)
 				}

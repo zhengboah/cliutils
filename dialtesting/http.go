@@ -81,13 +81,9 @@ func (t *HTTPTask) metricName() string {
 }
 
 func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]interface{}) {
-	if t.rawURL == "" {
-		t.rawURL = t.URL
-	}
-
 	tags = map[string]string{
 		"name":         t.Name,
-		"url":          t.rawURL,
+		"url":          t.URL,
 		"proto":        t.req.Proto,
 		"status":       "FAIL",
 		"method":       t.Method,
@@ -112,11 +108,6 @@ func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]inter
 	}
 
 	message := map[string]interface{}{}
-
-	if t.req != nil {
-		message[`request_body`] = t.req.Body
-		message[`request_header`] = t.req.Header
-	}
 
 	reasons, succFlag := t.CheckResult()
 	if t.reqError != "" {
@@ -169,7 +160,6 @@ func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]inter
 	} else {
 		fields[`message`] = string(data)
 	}
-
 
 	return tags, fields
 }
