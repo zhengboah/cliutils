@@ -325,8 +325,8 @@ func (t *TCPTask) class() string {
 	return ClassTCP
 }
 
-func (t *TCPTask) getHostName() (string, error) {
-	return t.Host, nil
+func (t *TCPTask) getHostName() ([]string, error) {
+	return []string{t.Host}, nil
 }
 
 

@@ -389,8 +389,8 @@ func (t *ICMPTask) checkSum(data []byte) (rt uint16) {
 	return ^rt
 }
 
-func (t *ICMPTask) getHostName() (string, error) {
-	return t.Host, nil
+func (t *ICMPTask) getHostName() ([]string, error) {
+	return []string{t.Host}, nil
 }
 
 func (t *ICMPTask) beforeFirstRender() {

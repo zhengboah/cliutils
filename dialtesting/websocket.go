@@ -369,8 +369,12 @@ func (t *WebsocketTask) class() string {
 	return ClassWebsocket
 }
 
-func (t *WebsocketTask) getHostName() (string, error) {
-	return getHostName(t.URL)
+func (t *WebsocketTask) getHostName() ([]string, error) {
+	if hostName, err := getHostName(t.URL); err != nil {
+		return nil, err
+	} else {
+		return []string{hostName}, nil
+	}
 }
 
 func basicAuth(username, password string) string {

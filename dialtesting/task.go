@@ -71,7 +71,7 @@ type TaskChild interface {
 	getVariableValue(variable Variable) (string, error)
 	class() string
 	metricName() string
-	getHostName() (string, error)
+	getHostName() ([]string, error)
 }
 
 func getHostName(host string) (string, error) {
@@ -103,7 +103,7 @@ type ITask interface {
 	GetExternalID() string
 	SetOwnerExternalID(string)
 	GetLineData() string
-	GetHostName() (string, error)
+	GetHostName() ([]string, error)
 	GetWorkspaceLanguage() string
 	GetDFLabel() string
 
@@ -330,7 +330,7 @@ func (t *Task) Init() error {
 	return t.init()
 }
 
-func (t *Task) GetHostName() (string, error) {
+func (t *Task) GetHostName() ([]string, error) {
 	return t.child.getHostName()
 }
 

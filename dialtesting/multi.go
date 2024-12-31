@@ -266,8 +266,29 @@ func (t *MultiTask) init() error {
 }
 
 // TODO
-func (t *MultiTask) getHostName() (string, error) {
-	return "", fmt.Errorf("not support")
+func (t *MultiTask) getHostName() ([]string, error) {
+	hostNames := []string{}
+	for _, step := range t.Steps {
+		if step.Type == "http" {
+			ct := &HTTPTask{}
+			if err := json.Unmarshal([]byte(step.TaskString), ct); err != nil {
+				return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
+			}
+
+			task, err := NewTask(ct)
+			if err != nil {
+				return nil, fmt.Errorf("new task failed: %w", err)
+			}
+
+			if v, err := task.GetHostName(); err != nil {
+				return nil, fmt.Errorf("get host name failed: %w", err)
+			} else {
+				hostNames = append(hostNames, v...)
+			}
+		}
+	}
+
+	return hostNames, nil
 }
 
 // TODO

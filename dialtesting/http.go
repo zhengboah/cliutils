@@ -551,8 +551,12 @@ func (t *HTTPTask) init() error {
 	return nil
 }
 
-func (t *HTTPTask) getHostName() (string, error) {
-	return getHostName(t.URL)
+func (t *HTTPTask) getHostName() ([]string, error) {
+	if hostName, err := getHostName(t.URL); err != nil {
+		return nil, err
+	} else {
+		return []string{hostName}, nil
+	}
 }
 
 func (t *HTTPTask) getVariableValue(variable Variable) (string, error) {
