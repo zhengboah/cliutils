@@ -23,8 +23,12 @@ import (
 	"time"
 )
 
+var (
+	_ TaskChild = (*HTTPTask)(nil)
+)
+
 type HTTPTask struct {
-	Task
+	*Task
 	URL              string             `json:"url"`
 	Method           string             `json:"method"`
 	PostScript       string             `json:"post_script,omitempty"`
@@ -596,4 +600,17 @@ func (t *HTTPTask) getVariableValue(variable Variable) (string, error) {
 
 func (t *HTTPTask) beforeFirstRender() {
 	t.rawURL = t.URL
+}
+
+func (t *HTTPTask) getRawTask(taskString string) (string, error) {
+	task := HTTPTask{}
+
+	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+		return "", fmt.Errorf("unmarshal http task failed: %w", err)
+	}
+
+	task.Task = nil
+
+	bytes, _ := json.Marshal(task)
+	return string(bytes), nil
 }

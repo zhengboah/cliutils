@@ -68,7 +68,7 @@ func TestMulti(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	assert.NoError(t, task.RenderTemplate(nil))
+	assert.NoError(t, task.RenderTemplateAndInit(nil))
 
 	assert.NoError(t, task.Run())
 

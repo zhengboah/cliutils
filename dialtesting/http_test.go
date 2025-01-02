@@ -37,7 +37,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			fail:      false,
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_no_resp",
 					Region:     "hangzhou",
@@ -71,7 +71,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			fail:      false,
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_cert",
 					Region:     "hangzhou",
@@ -100,7 +100,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			fail:      true,
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_cert",
 					Region:     "hangzhou",
@@ -131,7 +131,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			fail:      false,
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_proxy",
 					Region:     "hangzhou",
@@ -161,7 +161,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			fail:      true,
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_body",
 					Region:     "hangzhou",
@@ -189,7 +189,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_body",
 					Region:     "hangzhou",
@@ -218,7 +218,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_headers",
 					Region:     "hangzhou",
@@ -248,7 +248,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_basic_auth",
 					Region:     "hangzhou",
@@ -279,7 +279,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_with_cookie",
 					Region:     "hangzhou",
@@ -312,7 +312,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_redirect",
 					Region:     "hangzhou",
@@ -337,7 +337,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 0,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_redirect_disabled",
 					Region:     "hangzhou",
@@ -363,7 +363,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			reasonCnt: 1,
 			fail:      true,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_http_timeout_failed",
 					Region:     "hangzhou",
@@ -388,7 +388,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			reasonCnt: 0,
 			fail:      true,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_http_timeout_ok",
 					Region:     "hangzhou",
@@ -414,7 +414,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 			reasonCnt: 1,
 			t: &HTTPTask{
 
-				Task: Task{
+				Task: &Task{
 
 					ExternalID: cliutils.XID("dialt_"),
 					Name:       "_test_resp_time_less_10ms",
@@ -432,7 +432,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		{
 			reasonCnt: 2,
 			t: &HTTPTask{
-				Task: Task{
+				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
 					Name:       "_test_header_checking",
 					Region:     "hangzhou",
@@ -731,7 +731,7 @@ func TestPrepareTemplate(t *testing.T) {
 	task := &HTTPTask{
 		URL:        "http://localhost:8000/{{global}}",
 		PostScript: "{{local}}",
-		Task: Task{
+		Task: &Task{
 
 			ConfigVars: []*ConfigVar{
 				{
@@ -753,7 +753,7 @@ func TestPrepareTemplate(t *testing.T) {
 	assert.NoError(t, err)
 	task.SetTaskJSONString(string(v))
 
-	err = task.RenderTemplate(globalVars)
+	err = task.RenderTemplateAndInit(globalVars)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "http://localhost:8000/global", task.URL)
@@ -766,7 +766,7 @@ func TestPostScript(t *testing.T) {
 	}))
 
 	task := &HTTPTask{
-		Task: Task{
+		Task: &Task{
 			Frequency: "1s",
 		},
 		URL: server.URL,
@@ -788,7 +788,7 @@ func TestPostScript(t *testing.T) {
 	task.SetChild(task)
 
 	vars := map[string]Variable{}
-	assert.NoError(t, task.RenderTemplate(vars))
+	assert.NoError(t, task.RenderTemplateAndInit(vars))
 	assert.NoError(t, task.Run())
 
 	tags, fields := task.GetResults()

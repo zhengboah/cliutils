@@ -32,7 +32,7 @@ var cases = []struct {
 					}},
 				},
 			},
-			Task: Task{
+			Task: &Task{
 				ExternalID: "xxxx", Frequency: "10s", Name: "success",
 			},
 		},
@@ -48,7 +48,7 @@ var cases = []struct {
 					}},
 				},
 			},
-			Task: Task{
+			Task: &Task{
 				ExternalID: "xxxx", Frequency: "10s", Name: "response_time_large",
 			},
 		},

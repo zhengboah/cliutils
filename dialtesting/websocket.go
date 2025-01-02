@@ -50,7 +50,7 @@ type WebsocketAdvanceOption struct {
 }
 
 type WebsocketTask struct {
-	Task
+	*Task
 	URL              string                  `json:"url"`
 	Message          string                  `json:"message"`
 	SuccessWhen      []*WebsocketSuccess     `json:"success_when"`
@@ -387,4 +387,17 @@ func (t *WebsocketTask) beforeFirstRender() {
 
 func (t *WebsocketTask) getVariableValue(variable Variable) (string, error) {
 	return "", fmt.Errorf("not support")
+}
+
+func (t *WebsocketTask) getRawTask(taskString string) (string, error) {
+	task := WebsocketTask{}
+
+	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+		return "", fmt.Errorf("unmarshal http task failed: %w", err)
+	}
+
+	task.Task = nil
+
+	bytes, _ := json.Marshal(task)
+	return string(bytes), nil
 }

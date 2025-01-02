@@ -44,7 +44,7 @@ type ICMPSuccess struct {
 }
 
 type ICMPTask struct {
-	Task
+	*Task
 	Host             string            `json:"host"`
 	PacketCount      int               `json:"packet_count"`
 	Timeout          string            `json:"timeout"`
@@ -398,4 +398,18 @@ func (t *ICMPTask) beforeFirstRender() {
 
 func (t *ICMPTask) getVariableValue(variable Variable) (string, error) {
 	return "", fmt.Errorf("not support")
+}
+
+
+func (t *ICMPTask) getRawTask(taskString string) (string, error) {
+	task := ICMPTask{}
+
+	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+		return "", fmt.Errorf("unmarshal http task failed: %w", err)
+	}
+
+	task.Task = nil
+
+	bytes, _ := json.Marshal(task)
+	return string(bytes), nil
 }

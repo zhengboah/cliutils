@@ -27,7 +27,7 @@ var tcpCases = []struct {
 						Target: "10s",
 					}},
 				},
-			}, Task: Task{
+			}, Task: &Task{
 				ExternalID: "xxxx", Frequency: "10s", Name: "success",
 			},
 		},
@@ -42,7 +42,7 @@ var tcpCases = []struct {
 						Target: "1us",
 					}},
 				},
-			}, Task: Task{
+			}, Task: &Task{
 
 				ExternalID: "xxxx", Frequency: "10s", Name: "response_time_large",
 			},
@@ -60,7 +60,7 @@ var tcpCases = []struct {
 					}},
 				},
 			},
-			Task: Task{
+			Task: &Task{
 				ExternalID: "xxxx", Frequency: "10s", Name: "response_message_valid",
 			},
 		},
@@ -77,7 +77,7 @@ var tcpCases = []struct {
 					}},
 				},
 			},
-			Task: Task{
+			Task: &Task{
 				ExternalID: "xxxx", Frequency: "10s", Name: "response_message_invalid",
 			},
 		},

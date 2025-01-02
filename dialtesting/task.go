@@ -72,6 +72,7 @@ type TaskChild interface {
 	class() string
 	metricName() string
 	getHostName() ([]string, error)
+	getRawTask(string) (string, error)
 }
 
 func getHostName(host string) (string, error) {
@@ -87,7 +88,6 @@ type ITask interface {
 	ID() string
 	Status() string
 	Run() error
-	Init() error
 	CheckResult() ([]string, bool)
 	Class() string
 	GetResults() (map[string]string, map[string]interface{})
@@ -116,10 +116,8 @@ type ITask interface {
 
 	GetVariableValue(Variable) (string, error)
 	GetGlobalVars() []string
-	RenderTemplate(globalVariables map[string]Variable) error
+	RenderTemplateAndInit(globalVariables map[string]Variable) error
 	AddExtractedVar(*ConfigVar)
-
-	Ticker() *time.Ticker
 }
 
 type Task struct {
@@ -136,16 +134,15 @@ type Task struct {
 	WorkspaceLanguage string             `json:"workspace_language,omitempty"`
 	TagsInfo          string             `json:"tags_info,omitempty"` // deprecated
 	DFLabel           string             `json:"df_label,omitempty"`
-	AdvanceOptions    *HTTPAdvanceOption `json:"advance_options,omitempty"`
 	UpdateTime        int64              `json:"update_time,omitempty"`
 	ConfigVars        []*ConfigVar       `json:"config_vars,omitempty"`
 	ExtractedVars     []*ConfigVar
 
-	ticker               *time.Ticker
 	taskJSONString       string
 	parsedTaskJSONString string
 	child                TaskChild
 
+	rawTask    string
 	inited     bool
 	globalVars map[string]Variable
 }
@@ -217,10 +214,6 @@ func (t *Task) Status() string {
 	return t.CurStatus
 }
 
-func (t *Task) Ticker() *time.Ticker {
-	return t.ticker
-}
-
 func (t *Task) Class() string {
 	return t.child.class()
 }
@@ -264,9 +257,21 @@ func (t *Task) GetResults() (tags map[string]string, fields map[string]interface
 	fields[`config_vars`] = string(bytes)
 
 	// task
-	fields["task"] = t.taskJSONString
+	fields["task"] = t.getRawTask()
 
 	return tags, fields
+}
+
+func (t *Task) getRawTask() string {
+	if t.rawTask == "" {
+		if v, err := t.child.getRawTask(t.taskJSONString); err != nil {
+			return ""
+		} else {
+			t.rawTask = v
+		}
+	}
+
+	return t.rawTask
 }
 
 func (t *Task) RegionName() string {
@@ -298,20 +303,6 @@ func (t *Task) Check() error {
 func (t *Task) Run() error {
 	t.Clear()
 	return t.child.run()
-}
-
-func (t *Task) GetTicker() (*time.Ticker, error) {
-	du, err := time.ParseDuration(t.Frequency)
-	if err != nil {
-		return nil, err
-	}
-
-	if t.ticker != nil {
-		t.ticker.Stop()
-		t.ticker = time.NewTicker(du)
-	}
-
-	return t.ticker, nil
 }
 
 func (t *Task) init() error {
@@ -367,7 +358,7 @@ func (t *Task) GetGlobalVars() []string {
 }
 
 // RenderTempate render template and init task.
-func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
+func (t *Task) RenderTemplateAndInit(globalVariables map[string]Variable) error {
 	// first render
 	if !t.inited {
 		t.child.beforeFirstRender()
@@ -403,6 +394,11 @@ func (t *Task) RenderTemplate(globalVariables map[string]Variable) error {
 	// render template only for its child task
 	if t.Class() == ClassMulti {
 		return nil
+	}
+
+	// no variables, no need to render template
+	if len(allVars) == 0 {
+		return t.init()
 	}
 
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)

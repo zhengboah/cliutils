@@ -153,7 +153,7 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 			})
 		}
 
-		err = task.RenderTemplate(t.globalVars)
+		err = task.RenderTemplateAndInit(t.globalVars)
 		if err != nil {
 			err = fmt.Errorf("init http step task failed: %w", err)
 		} else {
