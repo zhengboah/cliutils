@@ -55,7 +55,7 @@ type Variable struct {
 	PostScript  string `json:"post_script,omitempty"`
 
 	UpdatedAt       int64  `json:"updated_at,omitempty"`
-	OwnerExternalID string `json:"owner_external_id,omitempty"`
+	OwnerExternalID string `json:"-"`
 	CreatedAt       int64  `json:"-"`
 	DeletedAt       int64  `json:"-"`
 }
@@ -118,24 +118,25 @@ type ITask interface {
 	GetGlobalVars() []string
 	RenderTemplateAndInit(globalVariables map[string]Variable) error
 	AddExtractedVar(*ConfigVar)
+	GetPostScriptVars() Vars
 }
 
 type Task struct {
-	ExternalID        string             `json:"external_id"`
-	Name              string             `json:"name"`
-	AK                string             `json:"access_key"`
-	PostURL           string             `json:"post_url"`
-	CurStatus         string             `json:"status"`
-	Frequency         string             `json:"frequency"`
-	Region            string             `json:"region"`
-	OwnerExternalID   string             `json:"owner_external_id"`
-	Tags              map[string]string  `json:"tags,omitempty"`
-	Labels            []string           `json:"labels,omitempty"`
-	WorkspaceLanguage string             `json:"workspace_language,omitempty"`
-	TagsInfo          string             `json:"tags_info,omitempty"` // deprecated
-	DFLabel           string             `json:"df_label,omitempty"`
-	UpdateTime        int64              `json:"update_time,omitempty"`
-	ConfigVars        []*ConfigVar       `json:"config_vars,omitempty"`
+	ExternalID        string            `json:"external_id"`
+	Name              string            `json:"name"`
+	AK                string            `json:"access_key"`
+	PostURL           string            `json:"post_url"`
+	CurStatus         string            `json:"status"`
+	Frequency         string            `json:"frequency"`
+	Region            string            `json:"region"`
+	OwnerExternalID   string            `json:"owner_external_id"`
+	Tags              map[string]string `json:"tags,omitempty"`
+	Labels            []string          `json:"labels,omitempty"`
+	WorkspaceLanguage string            `json:"workspace_language,omitempty"`
+	TagsInfo          string            `json:"tags_info,omitempty"` // deprecated
+	DFLabel           string            `json:"df_label,omitempty"`
+	UpdateTime        int64             `json:"update_time,omitempty"`
+	ConfigVars        []*ConfigVar      `json:"config_vars,omitempty"`
 	ExtractedVars     []*ConfigVar
 
 	taskJSONString       string
@@ -440,4 +441,14 @@ func (t *Task) GetVariableValue(variable Variable) (string, error) {
 
 func (t *Task) CheckResult() ([]string, bool) {
 	return t.child.checkResult()
+}
+
+func (t *Task) GetPostScriptVars() Vars {
+	if ct, ok := t.child.(*HTTPTask); ok {
+		if ct.postScriptResult != nil {
+			return ct.postScriptResult.Vars
+		}
+	}
+
+	return nil
 }

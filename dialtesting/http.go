@@ -86,13 +86,12 @@ func (t *HTTPTask) metricName() string {
 
 func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]interface{}) {
 	tags = map[string]string{
-		"name":         t.Name,
-		"url":          t.URL,
-		"proto":        t.req.Proto,
-		"status":       "FAIL",
-		"method":       t.Method,
-		"dest_ip":      t.destIP,
-		"resolved_url": t.URL,
+		"name":    t.Name,
+		"url":     t.URL,
+		"proto":   t.req.Proto,
+		"status":  "FAIL",
+		"method":  t.Method,
+		"dest_ip": t.destIP,
 	}
 
 	fields = map[string]interface{}{
