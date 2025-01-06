@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+var (
+	_ TaskChild = (*TCPTask)(nil)
+)
+
 const defaultTCPTimeout = 30 * time.Second
 
 type TCPResponseTime struct {
@@ -263,12 +267,12 @@ func (t *TCPTask) run() error {
 		start := time.Now()
 		if ips, err := net.LookupIP(t.Host); err != nil {
 			t.reqError = err.Error()
-			return err
+			return nil
 		} else {
 			if len(ips) == 0 {
 				err := fmt.Errorf("invalid host: %s, found no ip record", t.Host)
 				t.reqError = err.Error()
-				return err
+				return nil
 			} else {
 				t.reqDNSCost = time.Since(start)
 				hostIP = ips[0] // TODO: support mutiple ip for one host

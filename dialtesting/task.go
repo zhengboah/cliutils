@@ -54,10 +54,12 @@ type Variable struct {
 	Secure      bool   `json:"secure,omitempty"`
 	PostScript  string `json:"post_script,omitempty"`
 
-	UpdatedAt       int64  `json:"updated_at,omitempty"`
-	OwnerExternalID string `json:"-"`
+	UpdatedAt       int64  `json:"updated_at,omitempty"`       // update time
+	ValueUpdatedAt  int64  `json:"value_updated_at,omitempty"` // update value time
+	FailCount       int    `json:"fail_count,omitempty"`       // update fail count
+	DeletedAt       int64  `json:"deleted_at,omitempty"`
+	OwnerExternalID string `json:"owner_external_id,omitempty"`
 	CreatedAt       int64  `json:"-"`
-	DeletedAt       int64  `json:"-"`
 }
 type TaskChild interface {
 	beforeFirstRender()

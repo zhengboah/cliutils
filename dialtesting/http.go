@@ -311,7 +311,7 @@ result:
 		t.reqError = err.Error()
 	}
 
-	return err
+	return nil
 }
 
 func (t *HTTPTask) check() error {

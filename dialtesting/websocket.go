@@ -20,6 +20,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	_ TaskChild = (*WebsocketTask)(nil)
+)
+
 type WebsocketResponseTime struct {
 	IsContainDNS bool   `json:"is_contain_dns"`
 	Target       string `json:"target"`
@@ -277,12 +281,12 @@ func (t *WebsocketTask) run() error {
 		start := time.Now()
 		if ips, err := net.LookupIP(t.hostname); err != nil {
 			t.reqError = err.Error()
-			return err
+			return nil
 		} else {
 			if len(ips) == 0 {
 				err := fmt.Errorf("invalid host: %s, found no ip record", t.hostname)
 				t.reqError = err.Error()
-				return err
+				return nil
 			} else {
 				t.reqDNSCost = time.Since(start)
 				hostIP = ips[0] // TODO: support mutiple ip for one host
@@ -309,7 +313,7 @@ func (t *WebsocketTask) run() error {
 	if err != nil {
 		t.reqError = err.Error()
 		t.reqDNSCost = 0
-		return err
+		return nil
 	}
 
 	t.reqCost = time.Since(start)

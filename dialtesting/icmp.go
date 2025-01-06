@@ -16,6 +16,10 @@ import (
 	"github.com/go-ping/ping"
 )
 
+var (
+	_ TaskChild = (*ICMPTask)(nil)
+)
+
 const (
 	PingTimeout = 3 * time.Second
 )
@@ -298,7 +302,7 @@ func (t *ICMPTask) run() error {
 	pinger, err := ping.NewPinger(t.Host)
 	if err != nil {
 		t.reqError = err.Error()
-		return err
+		return nil
 	}
 
 	if t.PacketCount > 0 {
@@ -332,12 +336,12 @@ func (t *ICMPTask) run() error {
 		if hostIP == nil {
 			if ips, err := net.LookupIP(t.Host); err != nil {
 				t.reqError = err.Error()
-				return err
+				return nil
 			} else {
 				if len(ips) == 0 {
 					err := fmt.Errorf("invalid host: %s, found no ip record", t.Host)
 					t.reqError = err.Error()
-					return err
+					return nil
 				} else {
 					hostIP = ips[0]
 				}
@@ -399,7 +403,6 @@ func (t *ICMPTask) beforeFirstRender() {
 func (t *ICMPTask) getVariableValue(variable Variable) (string, error) {
 	return "", fmt.Errorf("not support")
 }
-
 
 func (t *ICMPTask) getRawTask(taskString string) (string, error) {
 	task := ICMPTask{}
