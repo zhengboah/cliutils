@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+var (
+	_ TaskChild = (*MultiTask)(nil)
+)
+
 type MultiStepRetry struct {
 	Retry    int `json:"retry"`    // retry times
 	Interval int `json:"interval"` // ms
@@ -35,7 +39,7 @@ type MultiStep struct {
 }
 
 type MultiTask struct {
-	Task
+	*Task
 	Steps []*MultiStep `json:"steps"`
 
 	duration      time.Duration
@@ -297,4 +301,17 @@ func (t *MultiTask) getVariableValue(variable Variable) (string, error) {
 }
 
 func (t *MultiTask) beforeFirstRender() {
+}
+
+func (t *MultiTask) getRawTask(taskString string) (string, error) {
+	task := MultiTask{}
+
+	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+		return "", fmt.Errorf("unmarshal multi task failed: %w", err)
+	}
+
+	task.Task = nil
+
+	bytes, _ := json.Marshal(task)
+	return string(bytes), nil
 }

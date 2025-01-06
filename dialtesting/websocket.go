@@ -397,7 +397,7 @@ func (t *WebsocketTask) getRawTask(taskString string) (string, error) {
 	task := WebsocketTask{}
 
 	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
-		return "", fmt.Errorf("unmarshal http task failed: %w", err)
+		return "", fmt.Errorf("unmarshal websocket task failed: %w", err)
 	}
 
 	task.Task = nil

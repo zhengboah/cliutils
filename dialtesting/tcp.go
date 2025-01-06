@@ -346,7 +346,7 @@ func (t *TCPTask) getRawTask(taskString string) (string, error) {
 	task := TCPTask{}
 
 	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
-		return "", fmt.Errorf("unmarshal http task failed: %w", err)
+		return "", fmt.Errorf("unmarshal tcp task failed: %w", err)
 	}
 
 	task.Task = nil
