@@ -360,7 +360,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		},
 
 		{
-			reasonCnt: 1,
+			reasonCnt: 0,
 			fail:      true,
 			t: &HTTPTask{
 				Task: &Task{
@@ -386,7 +386,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 
 		{
 			reasonCnt: 0,
-			fail:      true,
+			fail:      false,
 			t: &HTTPTask{
 				Task: &Task{
 					ExternalID: cliutils.XID("dtst_"),
@@ -412,6 +412,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 		// test dial with response time checking
 		{
 			reasonCnt: 1,
+			fail: true,
 			t: &HTTPTask{
 
 				Task: &Task{
@@ -422,6 +423,7 @@ func getHttpCases(httpServer, httpsServer, proxyServer *httptest.Server) []struc
 					Region:     "hangzhou",
 				},
 				Method: "GET",
+				URL:    fmt.Sprintf("%s/_test_resp_time_less_10ms", httpServer.URL),
 				SuccessWhen: []*HTTPSuccess{
 					{ResponseTime: "10ms"},
 				},
@@ -528,6 +530,12 @@ func TestDialHTTP(t *testing.T) {
 		} else if len(reasons) > 0 {
 			t.Logf("case %s reasons:\n\t%s",
 				c.t.Name, strings.Join(reasons, "\n\t"))
+		}
+
+		if c.reasonCnt > 0 || c.fail {
+			assert.Equal(t, "FAIL", ts["status"])
+		} else {
+			assert.Equal(t, "OK", ts["status"])
 		}
 	}
 }
