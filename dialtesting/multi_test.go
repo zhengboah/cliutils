@@ -64,7 +64,9 @@ func TestMulti(t *testing.T) {
 		},
 	}
 
-	task, err := NewTask(multiTask)
+	taskString, _ := json.Marshal(multiTask)
+
+	task, err := NewTask(string(taskString),multiTask)
 
 	assert.NoError(t, err)
 

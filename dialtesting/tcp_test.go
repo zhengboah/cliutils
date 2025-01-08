@@ -102,6 +102,7 @@ func TestTcp(t *testing.T) {
 		c.t.Host = host
 		c.t.Port = port
 
+		c.t.SetChild(c.t)
 		if err := c.t.Check(); err != nil {
 			if c.fail == false {
 				t.Errorf("case: %s, failed: %s", c.t.Name, err)

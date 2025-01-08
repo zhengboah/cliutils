@@ -139,12 +139,9 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 	}
 
 	for runCount < maxCount {
-		httpTask := HTTPTask{}
-		if err = json.Unmarshal([]byte(step.TaskString), &httpTask); err != nil {
-			return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
-		}
+		httpTask := &HTTPTask{}
 
-		task, err = NewTask(&httpTask)
+		task, err = NewTask(step.TaskString, httpTask)
 		if err != nil {
 			return nil, fmt.Errorf("new task failed: %w", err)
 		}
@@ -275,11 +272,7 @@ func (t *MultiTask) getHostName() ([]string, error) {
 	for _, step := range t.Steps {
 		if step.Type == "http" {
 			ct := &HTTPTask{}
-			if err := json.Unmarshal([]byte(step.TaskString), ct); err != nil {
-				return nil, fmt.Errorf("unmarshal http step task failed: %w", err)
-			}
-
-			task, err := NewTask(ct)
+			task, err := NewTask(step.TaskString, ct)
 			if err != nil {
 				return nil, fmt.Errorf("new task failed: %w", err)
 			}
@@ -314,4 +307,10 @@ func (t *MultiTask) getRawTask(taskString string) (string, error) {
 
 	bytes, _ := json.Marshal(task)
 	return string(bytes), nil
+}
+
+func (t *MultiTask) initTask() {
+	if t.Task == nil {
+		t.Task = &Task{}
+	}
 }

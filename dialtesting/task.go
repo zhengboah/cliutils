@@ -75,6 +75,7 @@ type TaskChild interface {
 	metricName() string
 	getHostName() ([]string, error)
 	getRawTask(string) (string, error)
+	initTask()
 }
 
 func getHostName(host string) (string, error) {
@@ -150,13 +151,21 @@ type Task struct {
 	globalVars map[string]Variable
 }
 
-func NewTask(child any) (ITask, error) {
-	if t, ok := child.(ITask); !ok {
+func NewTask(taskString string, task TaskChild) (ITask, error) {
+	if task == nil {
 		return nil, fmt.Errorf("invalid task")
-	} else if ct, ok := child.(TaskChild); !ok {
-		return nil, fmt.Errorf("invalid child task")
+	}
+	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal failed: %s, task json: %s", err.Error(), taskString)
+	}
+
+	task.initTask()
+
+	if t, ok := task.(ITask); !ok {
+		return nil, fmt.Errorf("invalid task, not ITask")
 	} else {
-		t.SetChild(ct)
+		t.SetTaskJSONString(taskString)
+		t.SetChild(task)
 		return t, nil
 	}
 }

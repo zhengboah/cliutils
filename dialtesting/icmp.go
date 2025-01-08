@@ -396,3 +396,9 @@ func (t *ICMPTask) getRawTask(taskString string) (string, error) {
 	bytes, _ := json.Marshal(task)
 	return string(bytes), nil
 }
+
+func (t *ICMPTask) initTask() {
+	if t.Task == nil {
+		t.Task = &Task{}
+	}
+}

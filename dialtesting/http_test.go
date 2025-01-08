@@ -498,6 +498,7 @@ func TestDialHTTP(t *testing.T) {
 	httpCases := getHttpCases(httpServer, httpsServer, proxyServer)
 
 	for _, c := range httpCases {
+		c.t.SetChild(c.t)
 		if err := c.t.Init(); err != nil {
 			if c.fail == false {
 				t.Errorf("case %s failed: %s", c.t.Name, err)

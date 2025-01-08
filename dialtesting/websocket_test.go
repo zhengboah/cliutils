@@ -65,6 +65,8 @@ func TestWebsocket(t *testing.T) {
 		urlParsed.Scheme = "ws"
 		c.t.URL = urlParsed.String()
 
+		c.t.SetChild(c.t)
+
 		if err := c.t.Check(); err != nil {
 			if c.fail == false {
 				t.Errorf("case: %s, failed: %s", c.t.Name, err)
