@@ -153,8 +153,9 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 				Value:  v.Value,
 			})
 		}
-
-		err = task.RenderTemplateAndInit(t.globalVars)
+		// inject custom vars
+		task.SetCustomVars(t.ConfigVars)
+		err = task.RenderTemplateAndInit(nil)
 		if err != nil {
 			err = fmt.Errorf("init http step task failed: %w", err)
 		} else {
@@ -179,7 +180,7 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 				}
 
 				// set extracted vars, which can be used in next step
-				t.extractedVars = append(t.extractedVars, v)
+				t.extractedVars = append(t.extractedVars, step.ExtractedVars[i])
 			}
 
 		}

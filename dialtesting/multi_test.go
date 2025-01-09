@@ -21,7 +21,7 @@ func TestMulti(t *testing.T) {
 	}))
 
 	step := HTTPTask{
-		URL: server.URL,
+		URL: server.URL + "?token={{config_var_token}}-{{config_var_global}}",
 		PostScript: `
 			result["is_failed"] = false	
 			vars["token"] = "token"
@@ -31,7 +31,7 @@ func TestMulti(t *testing.T) {
 	step1Bytes, _ := json.Marshal(step)
 
 	step = HTTPTask{
-		URL: fmt.Sprintf("%s/{{token}}", server.URL),
+		URL: fmt.Sprintf("%s?token={{token}}-{{config_var_token}}-{{config_var_global}}", server.URL),
 		PostScript: `
 			result["is_failed"] = true
 			result["error_message"]	= "error"
@@ -41,6 +41,19 @@ func TestMulti(t *testing.T) {
 	step2Bytes, _ := json.Marshal(step)
 
 	multiTask := &MultiTask{
+		Task: &Task{
+			ConfigVars: []*ConfigVar{
+				{
+					Name:  "config_var_token",
+					Value: "config_var_token",
+				},
+				{
+					Name: "config_var_global",
+					ID:   "global_var_id",
+					Type: TypeVariableGlobal,
+				},
+			},
+		},
 		Steps: []*MultiStep{
 			{
 				Type:       "http",
@@ -66,11 +79,16 @@ func TestMulti(t *testing.T) {
 
 	taskString, _ := json.Marshal(multiTask)
 
-	task, err := NewTask(string(taskString),multiTask)
+	task, err := NewTask(string(taskString), multiTask)
 
 	assert.NoError(t, err)
 
-	assert.NoError(t, task.RenderTemplateAndInit(nil))
+	globalVars := map[string]Variable{
+		"global_var_id": {
+			Value: "global_var_value",
+		},
+	}
+	assert.NoError(t, task.RenderTemplateAndInit(globalVars))
 
 	assert.NoError(t, task.Run())
 
@@ -81,4 +99,7 @@ func TestMulti(t *testing.T) {
 
 	assert.Equal(t, "FAIL", tags["status"])
 	assert.EqualValues(t, -1, fields["success"])
+	assert.Equal(t, 3, len(multiTask.Steps))
+	assert.Equal(t, fmt.Sprintf("%s?token=config_var_token-global_var_value", server.URL), multiTask.Steps[0].result["url"])
+	assert.Equal(t, fmt.Sprintf("%s?token=token-config_var_token-global_var_value", server.URL), multiTask.Steps[2].result["url"])
 }

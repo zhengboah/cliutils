@@ -121,6 +121,7 @@ type ITask interface {
 	GetGlobalVars() []string
 	RenderTemplateAndInit(globalVariables map[string]Variable) error
 	AddExtractedVar(*ConfigVar)
+	SetCustomVars([]*ConfigVar)
 	GetPostScriptVars() Vars
 }
 
@@ -141,6 +142,7 @@ type Task struct {
 	UpdateTime        int64             `json:"update_time,omitempty"`
 	ConfigVars        []*ConfigVar      `json:"config_vars,omitempty"`
 	ExtractedVars     []*ConfigVar
+	CustomVars        []*ConfigVar
 
 	taskJSONString       string
 	parsedTaskJSONString string
@@ -155,8 +157,13 @@ func NewTask(taskString string, task TaskChild) (ITask, error) {
 	if task == nil {
 		return nil, fmt.Errorf("invalid task")
 	}
-	if err := json.Unmarshal([]byte(taskString), &task); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal failed: %s, task json: %s", err.Error(), taskString)
+	if taskString != "" {
+		if err := json.Unmarshal([]byte(taskString), &task); err != nil {
+			return nil, fmt.Errorf("json.Unmarshal failed: %s, task json: %s", err.Error(), taskString)
+		}
+	} else {
+		bytes, _ := json.Marshal(task)
+		taskString = string(bytes)
 	}
 
 	task.initTask()
@@ -385,6 +392,7 @@ func (t *Task) RenderTemplateAndInit(globalVariables map[string]Variable) error 
 	fm := template.FuncMap{}
 
 	allVars := append(t.ConfigVars, t.ExtractedVars...)
+	allVars = append(allVars, t.CustomVars...)
 
 	for _, v := range allVars {
 		value := v.Value
@@ -444,6 +452,10 @@ func (t *Task) AddExtractedVar(v *ConfigVar) {
 	}
 
 	t.ExtractedVars = append(t.ExtractedVars, v)
+}
+
+func (t *Task) SetCustomVars(vars []*ConfigVar) {
+	t.CustomVars = vars
 }
 
 func (t *Task) GetVariableValue(variable Variable) (string, error) {
