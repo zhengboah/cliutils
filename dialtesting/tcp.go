@@ -321,9 +321,7 @@ func (t *TCPTask) run() error {
 	return nil
 }
 
-func (t *TCPTask) stop() {
-	return
-}
+func (t *TCPTask) stop() {}
 
 func (t *TCPTask) class() string {
 	return ClassTCP

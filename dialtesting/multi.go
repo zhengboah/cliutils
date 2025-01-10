@@ -58,9 +58,7 @@ func (t *MultiTask) clear() {
 	}
 }
 
-func (t *MultiTask) stop() {
-	return
-}
+func (t *MultiTask) stop() {}
 
 func (t *MultiTask) class() string {
 	return ClassMulti

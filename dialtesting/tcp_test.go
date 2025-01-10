@@ -96,7 +96,7 @@ func TestTcp(t *testing.T) {
 
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
-			t.Errorf(err.Error())
+			t.Fatal(err.Error())
 			continue
 		}
 		c.t.Host = host

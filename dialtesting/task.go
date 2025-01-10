@@ -227,7 +227,6 @@ func (t *Task) SetUpdateTime(ts int64) {
 
 func (t *Task) Stop() {
 	t.child.stop()
-	return
 }
 
 func (t *Task) Status() string {

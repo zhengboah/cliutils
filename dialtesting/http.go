@@ -73,7 +73,6 @@ func (t *HTTPTask) stop() {
 	if t.cli != nil {
 		t.cli.CloseIdleConnections()
 	}
-	return
 }
 
 func (t *HTTPTask) class() string {
