@@ -67,7 +67,7 @@ type TaskChild interface {
 	init() error
 	checkResult() ([]string, bool)
 	getResults() (map[string]string, map[string]interface{})
-	stop() error
+	stop()
 	check() error
 	clear()
 	getVariableValue(variable Variable) (string, error)
@@ -225,8 +225,9 @@ func (t *Task) SetUpdateTime(ts int64) {
 	t.UpdateTime = ts
 }
 
-func (t *Task) Stop() error {
-	return t.child.stop()
+func (t *Task) Stop() {
+	t.child.stop()
+	return
 }
 
 func (t *Task) Status() string {

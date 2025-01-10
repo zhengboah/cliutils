@@ -365,8 +365,8 @@ func (t *WebsocketTask) getHeader() http.Header {
 	return header
 }
 
-func (t *WebsocketTask) stop() error {
-	return nil
+func (t *WebsocketTask) stop() {
+	return
 }
 
 func (t *WebsocketTask) class() string {

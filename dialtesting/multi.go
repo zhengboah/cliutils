@@ -29,6 +29,7 @@ type MultiExtractedVar struct {
 
 type MultiStep struct {
 	Type          string              `json:"type"` // http or wait
+	Name          string              `json:"name"` // name
 	AllowFailure  bool                `json:"allow_failure"`
 	Retry         *MultiStepRetry     `json:"retry"`
 	TaskString    string              `json:"task,omitempty"`
@@ -48,10 +49,17 @@ type MultiTask struct {
 }
 
 func (t *MultiTask) clear() {
+	t.duration = 0
+	t.extractedVars = nil
+	t.lastStep = -1
+
+	for _, step := range t.Steps {
+		step.result = nil
+	}
 }
 
-func (t *MultiTask) stop() error {
-	return nil
+func (t *MultiTask) stop() {
+	return
 }
 
 func (t *MultiTask) class() string {
@@ -140,12 +148,10 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 
 	for runCount < maxCount {
 		httpTask := &HTTPTask{}
-
 		task, err = NewTask(step.TaskString, httpTask)
 		if err != nil {
 			return nil, fmt.Errorf("new task failed: %w", err)
 		}
-
 		for _, v := range t.extractedVars {
 			task.AddExtractedVar(&ConfigVar{
 				Name:   v.Name,
@@ -182,8 +188,8 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 				// set extracted vars, which can be used in next step
 				t.extractedVars = append(t.extractedVars, step.ExtractedVars[i])
 			}
-
 		}
+		task.Stop()
 
 		runCount++
 		if runCount < maxCount {
@@ -232,10 +238,19 @@ func (t *MultiTask) check() error {
 	}
 
 	for _, step := range t.Steps {
+		if step.Retry != nil {
+			if step.Retry.Retry < 0 || step.Retry.Retry > 5 {
+				return fmt.Errorf("retry should be in 0 ~ 5")
+			}
+
+			if step.Retry.Interval < 0 || step.Retry.Interval > 5000 {
+				return fmt.Errorf("retry interval should be in 0 ~ 5000")
+			}
+		}
 		switch step.Type {
 		case "wait":
-			if step.Value == 0 {
-				return fmt.Errorf("wait step value should not be 0")
+			if step.Value <= 0 || step.Value > 180 {
+				return fmt.Errorf("wait step value should be in 1 ~ 180")
 			}
 
 		case "http":
@@ -243,9 +258,9 @@ func (t *MultiTask) check() error {
 				return fmt.Errorf("http step task should not be empty")
 			}
 
-			task := HTTPTask{}
-			if err := json.Unmarshal([]byte(step.TaskString), &task); err != nil {
-				return fmt.Errorf("unmarshal http step task failed: %w", err)
+			task, err := NewTask(step.TaskString, &HTTPTask{})
+			if err != nil {
+				return fmt.Errorf("new task failed: %w", err)
 			}
 
 			if err := task.Check(); err != nil {

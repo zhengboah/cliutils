@@ -365,8 +365,8 @@ func (t *ICMPTask) round(num float64, n int) float64 {
 	return roundNum
 }
 
-func (t *ICMPTask) stop() error {
-	return nil
+func (t *ICMPTask) stop() {
+	return
 }
 
 func (t *ICMPTask) class() string {

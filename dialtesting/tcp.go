@@ -321,8 +321,8 @@ func (t *TCPTask) run() error {
 	return nil
 }
 
-func (t *TCPTask) stop() error {
-	return nil
+func (t *TCPTask) stop() {
+	return
 }
 
 func (t *TCPTask) class() string {
@@ -333,14 +333,12 @@ func (t *TCPTask) getHostName() ([]string, error) {
 	return []string{t.Host}, nil
 }
 
-
 func (t *TCPTask) beforeFirstRender() {
 }
 
 func (t *TCPTask) getVariableValue(variable Variable) (string, error) {
 	return "", fmt.Errorf("not support")
 }
-
 
 func (t *TCPTask) getRawTask(taskString string) (string, error) {
 	task := TCPTask{}

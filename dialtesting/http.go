@@ -69,11 +69,11 @@ func (t *HTTPTask) clear() {
 	t.reqError = ""
 }
 
-func (t *HTTPTask) stop() error {
+func (t *HTTPTask) stop() {
 	if t.cli != nil {
 		t.cli.CloseIdleConnections()
 	}
-	return nil
+	return
 }
 
 func (t *HTTPTask) class() string {
@@ -87,7 +87,7 @@ func (t *HTTPTask) metricName() string {
 func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]interface{}) {
 	tags = map[string]string{
 		"name":    t.Name,
-		"url":     t.URL,
+		"url":     t.rawURL,
 		"proto":   t.req.Proto,
 		"status":  "FAIL",
 		"method":  t.Method,
@@ -428,7 +428,7 @@ func (t *HTTPTask) setupAdvanceOpts(req *http.Request) error {
 }
 
 func (t *HTTPTask) init() error {
-	httpTimeout := 30 * time.Second // default timeout
+	httpTimeout := 60 * time.Second // default timeout
 
 	if t.Option == nil {
 		t.Option = map[string]string{}
@@ -443,7 +443,9 @@ func (t *HTTPTask) init() error {
 			return err
 		}
 
-		httpTimeout = du
+		if du < httpTimeout {
+			httpTimeout = du
+		}
 	}
 
 	// setup HTTP client
