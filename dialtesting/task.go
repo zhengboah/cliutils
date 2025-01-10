@@ -96,7 +96,7 @@ type ITask interface {
 	GetResults() (map[string]string, map[string]interface{})
 	PostURLStr() string
 	MetricName() string
-	Stop() error
+	Stop()
 	RegionName() string
 	AccessKey() string
 	Check() error
