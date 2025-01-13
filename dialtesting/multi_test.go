@@ -26,6 +26,7 @@ func TestMulti(t *testing.T) {
 
 	engine := gin.Default()
 	engine.GET("/token", func(ctx *gin.Context) {
+		body.Token = ctx.Query("token")
 		bodyBytes, _ := json.Marshal(body)
 		ctx.Writer.Write(bodyBytes)
 	})
@@ -148,6 +149,53 @@ func makeCases(serverURL string) []cs {
 				assert.NoError(t, json.Unmarshal([]byte(message), &msg))
 				assert.Equal(t, "error", msg["fail_reason"])
 				assert.EqualValues(t, -1, fields["success"])
+				return nil
+			},
+		},
+		{
+			Name:     "extract vars",
+			IsFailed: false,
+			Task: func() *MultiTask {
+				step1 := HTTPTask{
+					URL: serverURL + "/token",
+					PostScript: `
+			result["is_failed"] = false	
+			body = load_json(response["body"])
+			vars["token"] = body["Token"]
+		`,
+				}
+
+				step1Bytes, _ := json.Marshal(step1)
+
+				return &MultiTask{
+					Steps: []*MultiStep{
+						{
+							Type:       "http",
+							TaskString: string(step1Bytes),
+							ExtractedVars: []MultiExtractedVar{
+								{
+									Name:   "token_secure",
+									Field:  "token",
+									Secure: true,
+								},
+								{
+									Name:  "token",
+									Field: "token",
+								},
+							},
+						},
+					},
+				}
+			}(),
+			Check: func(t assert.TestingT, tags map[string]string, fields map[string]interface{}) error {
+				assert.Equal(t, "OK", tags["status"])
+				steps := []MultiStep{}
+				str, ok := fields["steps"].(string)
+				assert.True(t, ok)
+				assert.NoError(t, json.Unmarshal([]byte(str), &steps))
+				assert.True(t, (len(steps) == 1) && (len(steps[0].ExtractedVars) == 2))
+				assert.Equal(t, "", steps[0].ExtractedVars[0].Value)
+				assert.Equal(t, "", steps[0].ExtractedVars[0].Value)
 				return nil
 			},
 		},
