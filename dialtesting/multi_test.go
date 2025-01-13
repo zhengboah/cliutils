@@ -151,5 +151,67 @@ func makeCases(serverURL string) []cs {
 				return nil
 			},
 		},
+		{
+			Name:     "config vars",
+			IsFailed: false,
+			Task: func() *MultiTask {
+				step1 := HTTPTask{
+					URL:        serverURL + "/token",
+					PostScript: `result["is_failed"] = false`,
+				}
+
+				step1Bytes, _ := json.Marshal(step1)
+
+				return &MultiTask{
+					Task: &Task{
+						ConfigVars: []*ConfigVar{
+							{
+								Name:  "config_var_token",
+								Value: "config_var_token",
+							},
+							{
+								Name:   "config_var_token_secure",
+								Value:  "config_var_token",
+								Secure: true,
+							},
+							{
+								Name: "config_var_global",
+								ID:   "global_var_id",
+								Type: TypeVariableGlobal,
+							},
+						},
+					},
+					Steps: []*MultiStep{
+						{
+							Type:       "http",
+							TaskString: string(step1Bytes),
+						},
+					},
+				}
+			}(),
+			GlobalVars: map[string]Variable{
+				"global_var_id": {
+					Value: "global_var_value",
+				},
+			},
+			Check: func(t assert.TestingT, tags map[string]string, fields map[string]interface{}) error {
+				assert.Equal(t, "OK", tags["status"])
+				vars := []ConfigVar{}
+				configVarstring, ok := fields["config_vars"].(string)
+				assert.True(t, ok)
+				assert.NoError(t, json.Unmarshal([]byte(configVarstring), &vars))
+
+				// check config vars
+				assert.Equal(t, 3, len(vars))
+				// config var value
+				assert.Equal(t, "config_var_token", vars[0].Value)
+				// secure value
+				assert.Equal(t, "", vars[1].Value)
+				// global var
+				assert.Equal(t, "global_var_value", vars[2].Value)
+
+				return nil
+			},
+		},
 	}
 }
