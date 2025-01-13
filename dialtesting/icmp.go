@@ -18,6 +18,7 @@ import (
 
 var (
 	_ TaskChild = (*ICMPTask)(nil)
+	_ ITask = (*ICMPTask)(nil)
 )
 
 const (

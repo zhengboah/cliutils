@@ -25,6 +25,7 @@ import (
 
 var (
 	_ TaskChild = (*HTTPTask)(nil)
+	_ ITask = (*HTTPTask)(nil)
 )
 
 type HTTPTask struct {

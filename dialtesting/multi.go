@@ -13,6 +13,7 @@ import (
 
 var (
 	_ TaskChild = (*MultiTask)(nil)
+	_ ITask     = (*MultiTask)(nil)
 )
 
 type MultiStepRetry struct {

@@ -22,6 +22,7 @@ import (
 
 var (
 	_ TaskChild = (*WebsocketTask)(nil)
+	_ ITask = (*WebsocketTask)(nil)
 )
 
 type WebsocketResponseTime struct {
