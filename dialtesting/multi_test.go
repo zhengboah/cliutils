@@ -19,7 +19,8 @@ import (
 
 func TestMulti(t *testing.T) {
 	body := struct {
-		Token string
+		Code  string `json:"code"`
+		Token string `json:"token"`
 	}{
 		Token: fmt.Sprintf("token_%d", time.Now().UnixNano()),
 	}
@@ -27,6 +28,7 @@ func TestMulti(t *testing.T) {
 	engine := gin.Default()
 	engine.GET("/token", func(ctx *gin.Context) {
 		body.Token = ctx.Query("token")
+		body.Code = "200"
 		bodyBytes, _ := json.Marshal(body)
 		ctx.Writer.Write(bodyBytes)
 	})
@@ -157,11 +159,17 @@ func makeCases(serverURL string) []cs {
 			IsFailed: false,
 			Task: func() *MultiTask {
 				step1 := HTTPTask{
-					URL: serverURL + "/token",
+					URL: serverURL + "/token?token=token123",
 					PostScript: `
-			result["is_failed"] = false	
-			body = load_json(response["body"])
-			vars["token"] = body["Token"]
+					body = load_json(response["body"])
+
+					if body["code"] == "200" {
+						result["is_failed"] = false
+						vars["token"] = body["token"]
+					} else {
+						result["is_failed"] = true
+						result["error_message"] = body["message"]
+					}
 		`,
 				}
 
@@ -195,7 +203,7 @@ func makeCases(serverURL string) []cs {
 				assert.NoError(t, json.Unmarshal([]byte(str), &steps))
 				assert.True(t, (len(steps) == 1) && (len(steps[0].ExtractedVars) == 2))
 				assert.Equal(t, "", steps[0].ExtractedVars[0].Value)
-				assert.Equal(t, "", steps[0].ExtractedVars[0].Value)
+				assert.Equal(t, "token123", steps[0].ExtractedVars[1].Value)
 				return nil
 			},
 		},
