@@ -232,10 +232,6 @@ func (t *MultiTask) run() error {
 }
 
 func (t *MultiTask) check() error {
-	if len(t.Steps) == 0 {
-		return fmt.Errorf("steps should not be empty")
-	}
-
 	for _, step := range t.Steps {
 		if step.Retry != nil {
 			if step.Retry.Retry < 0 || step.Retry.Retry > 5 {
