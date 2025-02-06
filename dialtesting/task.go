@@ -116,6 +116,7 @@ type ITask interface {
 	SetUpdateTime(int64)
 	SetChild(TaskChild)
 	SetTaskJSONString(string)
+	GetTaskJSONString() string
 
 	GetVariableValue(Variable) (string, error)
 	GetGlobalVars() []string
