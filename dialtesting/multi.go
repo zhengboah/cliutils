@@ -37,16 +37,18 @@ type MultiStep struct {
 	Value         int                 `json:"value,omitempty"` // wait seconds for wait task
 	ExtractedVars []MultiExtractedVar `json:"extracted_vars,omitempty"`
 
-	result map[string]interface{}
+	result           map[string]interface{}
+	postScriptResult *ScriptResult
 }
 
 type MultiTask struct {
 	*Task
 	Steps []*MultiStep `json:"steps"`
 
-	duration      time.Duration
-	extractedVars []MultiExtractedVar
-	lastStep      int
+	postScriptResult *ScriptResult
+	duration         time.Duration
+	extractedVars    []MultiExtractedVar
+	lastStep         int
 }
 
 func (t *MultiTask) clear() {
@@ -178,6 +180,7 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 		}
 
 		if httpTask.postScriptResult != nil { // set extracted vars
+			step.postScriptResult = httpTask.postScriptResult
 			for i, v := range step.ExtractedVars {
 				value, ok := httpTask.postScriptResult.Vars[v.Name]
 				if ok {
@@ -216,6 +219,10 @@ func (t *MultiTask) run() error {
 				return fmt.Errorf("run http step task failed: %w", err)
 			} else {
 				step.result = result
+			}
+			//set post script result
+			if i == len(t.Steps)-1 {
+				t.postScriptResult = step.postScriptResult
 			}
 		case "wait":
 			time.Sleep(time.Duration(step.Value) * time.Second)

@@ -472,7 +472,16 @@ func (t *Task) GetPostScriptVars() Vars {
 		if ct.postScriptResult != nil {
 			return ct.postScriptResult.Vars
 		}
+		return nil
 	}
+
+	if ct, ok := t.child.(*MultiTask); ok {
+		if ct.postScriptResult != nil {
+			return ct.postScriptResult.Vars
+		}
+		return nil
+	}
+
 
 	return nil
 }
