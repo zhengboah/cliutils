@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -87,6 +88,12 @@ func getHostName(host string) (string, error) {
 	return reqURL.Hostname(), nil
 }
 
+var nameRe = regexp.MustCompile(`[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func isValidVariableName(name string) bool {
+	return nameRe.MatchString(name)
+}
+
 type ITask interface {
 	ID() string
 	Status() string
@@ -100,6 +107,7 @@ type ITask interface {
 	RegionName() string
 	AccessKey() string
 	Check() error
+	CheckTask() error
 	UpdateTimeUs() int64
 	GetFrequency() string
 	GetOwnerExternalID() string
@@ -302,6 +310,26 @@ func (t *Task) AccessKey() string {
 	return t.AK
 }
 
+func (t *Task) CheckTask() error {
+	for _, v := range t.ConfigVars {
+		if !isValidVariableName(v.Name) {
+			return fmt.Errorf("invalid variable name %s", v.Name)
+		}
+	}
+
+	for _, v := range t.ExtractedVars {
+		if !isValidVariableName(v.Name) {
+			return fmt.Errorf("invalid variable name %s", v.Name)
+		}
+	}
+
+	if err := t.child.check(); err != nil {
+		return err
+	}
+
+	return t.init()
+}
+
 func (t *Task) Check() error {
 	// TODO: check task validity
 	if t.ExternalID == "" {
@@ -313,11 +341,7 @@ func (t *Task) Check() error {
 		return err
 	}
 
-	if err := t.child.check(); err != nil {
-		return err
-	}
-
-	return t.init()
+	return t.CheckTask()
 }
 
 func (t *Task) Run() error {
@@ -481,7 +505,6 @@ func (t *Task) GetPostScriptVars() Vars {
 		}
 		return nil
 	}
-
 
 	return nil
 }

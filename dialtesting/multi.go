@@ -260,9 +260,13 @@ func (t *MultiTask) check() error {
 				return fmt.Errorf("http step task should not be empty")
 			}
 
-			_, err := NewTask(step.TaskString, &HTTPTask{})
+			task, err := NewTask(step.TaskString, &HTTPTask{})
 			if err != nil {
 				return fmt.Errorf("new task failed: %w", err)
+			}
+
+			if err := task.CheckTask(); err != nil {
+				return fmt.Errorf("check task failed: %w", err)
 			}
 
 		default:
