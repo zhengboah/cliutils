@@ -441,11 +441,6 @@ func (t *Task) RenderTemplateAndInit(globalVariables map[string]Variable) error 
 		return nil
 	}
 
-	// no variables, no need to render template
-	if len(allVars) == 0 {
-		return t.init()
-	}
-
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
 	if err != nil {
 		return fmt.Errorf("parse template error: %w", err)
