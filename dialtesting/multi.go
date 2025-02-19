@@ -268,6 +268,12 @@ func (t *MultiTask) check() error {
 			if err := task.CheckTask(); err != nil {
 				return fmt.Errorf("check task failed: %w", err)
 			}
+			
+			for _, v := range step.ExtractedVars {
+				if !isValidVariableName(v.Name) {
+					return fmt.Errorf("invalid variable name %s", v.Name)
+				}
+			}
 
 		default:
 			return fmt.Errorf("step type should be wait or http")
