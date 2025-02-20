@@ -443,7 +443,7 @@ func (t *Task) RenderTemplateAndInit(globalVariables map[string]Variable) error 
 
 	tmpl, err := template.New("task").Funcs(fm).Option("missingkey=zero").Parse(t.taskJSONString)
 	if err != nil {
-		return fmt.Errorf("parse template error: %w", err)
+		return fmt.Errorf("parse template error: %w", getTemplateError(err))
 	}
 	var buf strings.Builder
 	if err := tmpl.Execute(&buf, nil); err != nil {
@@ -502,4 +502,20 @@ func (t *Task) GetPostScriptVars() Vars {
 	}
 
 	return nil
+}
+
+var variableRe = regexp.MustCompile(`function "([^']*)" not defined`)
+
+func getTemplateError(err error) error {
+	if err == nil {
+		return err
+	}
+	msg := err.Error()
+	matches := variableRe.FindStringSubmatch(msg)
+
+	if len(matches) > 1 {
+		return fmt.Errorf("variable '%s' not defined", matches[1])
+	}
+
+	return err
 }
