@@ -94,7 +94,7 @@ func makeCases(serverURL string) []cs {
 				step1Bytes, _ := json.Marshal(step1)
 
 				step3 := HTTPTask{
-					URL: fmt.Sprintf("%s/token?token={{token}}", serverURL),
+					URL: fmt.Sprintf("%s/token?token={{Token}}", serverURL),
 					PostScript: `
 			result["is_failed"] = true
 			result["error_message"]	= "error"
@@ -122,7 +122,7 @@ func makeCases(serverURL string) []cs {
 							TaskString: string(step1Bytes),
 							ExtractedVars: []MultiExtractedVar{
 								{
-									Name:  "token",
+									Name:  "Token",
 									Field: "token",
 								},
 							},
