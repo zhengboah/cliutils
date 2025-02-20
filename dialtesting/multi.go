@@ -183,7 +183,7 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 			step.postScriptResult = httpTask.postScriptResult
 			for i, v := range step.ExtractedVars {
 				value, ok := httpTask.postScriptResult.Vars[v.Field]
-				if ok {
+				if ok && !v.Secure && value != nil{
 					step.ExtractedVars[i].Value = fmt.Sprintf("%v", value)
 				}
 
