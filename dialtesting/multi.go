@@ -220,16 +220,23 @@ func (t *MultiTask) run() error {
 			}
 			if result, err := t.runHTTPStep(step); err != nil {
 				return fmt.Errorf("run http step task failed: %w", err)
-			} else {
+			} else if result != nil {
 				step.result = result
+			} else {
+				step.result = map[string]interface{}{}
 			}
+			step.result["type"] = "http"
+
 			// set post script result
 			if i == len(t.Steps)-1 {
 				t.postScriptResult = step.postScriptResult
 			}
 		case "wait":
 			time.Sleep(time.Duration(step.Value) * time.Second)
-
+			step.result = map[string]interface{}{
+				"type":  "wait",
+				"value": step.Value,
+			}
 		default:
 			return fmt.Errorf("step type should be wait or http")
 		}
