@@ -73,11 +73,14 @@ func (t *MultiTask) metricName() string {
 
 func (t *MultiTask) getResults() (tags map[string]string, fields map[string]interface{}) {
 	fields = map[string]interface{}{
-		"success": -1,
+		"success":       -1,
+		"response_time": int64(t.duration) / 1000,
+		"last_step":     t.lastStep,
 	}
 
 	tags = map[string]string{
 		"status": "FAIL",
+		"name":   t.Name,
 	}
 	for k, v := range t.Tags {
 		tags[k] = v
@@ -183,7 +186,7 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 			step.postScriptResult = httpTask.postScriptResult
 			for i, v := range step.ExtractedVars {
 				value, ok := httpTask.postScriptResult.Vars[v.Field]
-				if ok && !v.Secure && value != nil{
+				if ok && !v.Secure && value != nil {
 					step.ExtractedVars[i].Value = fmt.Sprintf("%v", value)
 				}
 
@@ -220,7 +223,7 @@ func (t *MultiTask) run() error {
 			} else {
 				step.result = result
 			}
-			//set post script result
+			// set post script result
 			if i == len(t.Steps)-1 {
 				t.postScriptResult = step.postScriptResult
 			}
@@ -268,7 +271,7 @@ func (t *MultiTask) check() error {
 			if err := task.CheckTask(); err != nil {
 				return fmt.Errorf("check task failed: %w", err)
 			}
-			
+
 			for _, v := range step.ExtractedVars {
 				if !isValidVariableName(v.Name) {
 					return fmt.Errorf("invalid variable name %s", v.Name)
