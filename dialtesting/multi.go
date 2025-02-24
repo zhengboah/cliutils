@@ -213,6 +213,11 @@ func (t *MultiTask) run() error {
 	now := time.Now()
 	lastStep := -1 // last step which is not wait
 	for i, step := range t.Steps {
+		step.result = map[string]interface{}{
+			"type":            step.Type,
+			"task_start_time": time.Now().UnixMilli(),
+			"allow_failure":   step.AllowFailure,
+		}
 		switch step.Type {
 		case "http":
 			if i > lastStep {
@@ -220,23 +225,19 @@ func (t *MultiTask) run() error {
 			}
 			if result, err := t.runHTTPStep(step); err != nil {
 				return fmt.Errorf("run http step task failed: %w", err)
-			} else if result != nil {
-				step.result = result
 			} else {
-				step.result = map[string]interface{}{}
+				for k, v := range result {
+					step.result[k] = v
+				}
 			}
-			step.result["type"] = "http"
 
 			// set post script result
 			if i == len(t.Steps)-1 {
 				t.postScriptResult = step.postScriptResult
 			}
 		case "wait":
+			step.result["value"] = step.Value
 			time.Sleep(time.Duration(step.Value) * time.Second)
-			step.result = map[string]interface{}{
-				"type":  "wait",
-				"value": step.Value,
-			}
 		default:
 			return fmt.Errorf("step type should be wait or http")
 		}
