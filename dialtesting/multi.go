@@ -215,33 +215,52 @@ func (t *MultiTask) run() error {
 	now := time.Now()
 	lastStep := -1 // last step which is not wait
 
-stepLoop:
+	isLastStepFailed := false
 	for i, step := range t.Steps {
 		step.result = map[string]interface{}{
-			"type":            step.Type,
-			"task_start_time": time.Now().UnixMilli(),
-			"allow_failure":   step.AllowFailure,
+			"type":          step.Type,
+			"allow_failure": step.AllowFailure,
+			"task":          step.TaskString,
 		}
+
+		if !isLastStepFailed {
+			step.result["task_start_time"] = time.Now().UnixMilli()
+		}
+
+		// run step
 		switch step.Type {
 		case "http":
-			if i > lastStep {
-				lastStep = i
-			}
-			result, err := t.runHTTPStep(step)
+			if isLastStepFailed {
+				httpTask := &HTTPTask{}
+				_, err := NewTask(step.TaskString, httpTask)
+				if err == nil {
+					step.result["name"] = httpTask.Name
+					step.result["method"] = httpTask.Method
+					step.result["url"] = httpTask.URL
+				}
+			} else {
+				if i > lastStep {
+					lastStep = i
+				}
+				result, err := t.runHTTPStep(step)
 
-			for k, v := range result {
-				step.result[k] = v
+				for k, v := range result {
+					step.result[k] = v
+				}
+				if err != nil && !step.AllowFailure {
+					isLastStepFailed = true
+				}
+				// set post script result
+				if i == len(t.Steps)-1 {
+					t.postScriptResult = step.postScriptResult
+				}
 			}
-			if err != nil && !step.AllowFailure {
-				break stepLoop
-			}
-			// set post script result
-			if i == len(t.Steps)-1 {
-				t.postScriptResult = step.postScriptResult
-			}
+
 		case "wait":
 			step.result["value"] = step.Value
-			time.Sleep(time.Duration(step.Value) * time.Second)
+			if !isLastStepFailed {
+				time.Sleep(time.Duration(step.Value) * time.Second)
+			}
 		default:
 			return fmt.Errorf("step type should be wait or http")
 		}
