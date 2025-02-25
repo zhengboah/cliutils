@@ -202,8 +202,10 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 		}
 	}
 
-	if len(result) > 0 && result["status"] != "OK" && step.AllowFailure {
-		err = nil
+	if err == nil {
+		if len(result) > 0 && result["status"] != "OK" {
+			err = fmt.Errorf("run http step task failed")
+		}
 	}
 
 	return result, err
@@ -212,6 +214,8 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 func (t *MultiTask) run() error {
 	now := time.Now()
 	lastStep := -1 // last step which is not wait
+
+stepLoop:
 	for i, step := range t.Steps {
 		step.result = map[string]interface{}{
 			"type":            step.Type,
@@ -223,14 +227,14 @@ func (t *MultiTask) run() error {
 			if i > lastStep {
 				lastStep = i
 			}
-			if result, err := t.runHTTPStep(step); err != nil {
-				return fmt.Errorf("run http step task failed: %w", err)
-			} else {
-				for k, v := range result {
-					step.result[k] = v
-				}
-			}
+			result, err := t.runHTTPStep(step)
 
+			for k, v := range result {
+				step.result[k] = v
+			}
+			if err != nil && !step.AllowFailure {
+				break stepLoop
+			}
 			// set post script result
 			if i == len(t.Steps)-1 {
 				t.postScriptResult = step.postScriptResult
