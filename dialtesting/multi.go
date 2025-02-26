@@ -92,6 +92,8 @@ func (t *MultiTask) getResults() (tags map[string]string, fields map[string]inte
 			if step.result["status"] == "OK" {
 				tags["status"] = "OK"
 				fields["success"] = 1
+			} else {
+				fields["fail_reason"] = step.result["fail_reason"]
 			}
 			fields["message"] = step.result["message"]
 		}

@@ -124,7 +124,7 @@ func runPipeline(script string, response *ScriptHTTPRequestResponse, vars *Vars)
 	pt := ptinput.NewPlPoint(point.Logging, "test", nil, fileds, time.Now())
 
 	if err := pl.Run(pt, nil, nil); err != nil {
-		return nil, fmt.Errorf("run pipeline failed: %w", err)
+		return nil, fmt.Errorf("run failed: %w", err)
 	}
 
 	resultFields := pt.Fields()

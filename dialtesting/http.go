@@ -153,6 +153,7 @@ func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]inter
 	fields[`response_ttfb`] = t.ttfbTime
 	fields[`response_download`] = t.downloadTime
 
+	message["status"] = tags["status"]
 	data, err := json.Marshal(message)
 	if err != nil {
 		fields[`message`] = err.Error()
