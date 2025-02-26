@@ -25,7 +25,7 @@ import (
 
 var (
 	_ TaskChild = (*HTTPTask)(nil)
-	_ ITask = (*HTTPTask)(nil)
+	_ ITask     = (*HTTPTask)(nil)
 )
 
 type HTTPTask struct {
@@ -41,6 +41,8 @@ type HTTPTask struct {
 	cli              *http.Client
 	resp             *http.Response
 	req              *http.Request
+	reqHeader        map[string]string
+	reqBody          *HTTPOptBody
 	respBody         []byte
 	reqStart         time.Time
 	reqCost          time.Duration
@@ -110,7 +112,10 @@ func (t *HTTPTask) getResults() (tags map[string]string, fields map[string]inter
 		tags[k] = v
 	}
 
-	message := map[string]interface{}{}
+	message := map[string]interface{}{
+		"request_body":   t.reqBody,
+		"request_header": t.reqHeader,
+	}
 
 	reasons, succFlag := t.CheckResult()
 	if t.reqError != "" {
@@ -381,6 +386,8 @@ func (t *HTTPTask) checkResult() (reasons []string, succFlag bool) {
 
 func (t *HTTPTask) setupAdvanceOpts(req *http.Request) error {
 	opt := t.AdvanceOptions
+	t.reqBody = &HTTPOptBody{}
+	t.reqHeader = make(map[string]string)
 
 	if opt == nil {
 		return nil
@@ -395,6 +402,8 @@ func (t *HTTPTask) setupAdvanceOpts(req *http.Request) error {
 			} else {
 				req.Header.Add(k, v)
 			}
+
+			t.reqHeader[k] = v
 		}
 
 		// cookie
@@ -415,7 +424,9 @@ func (t *HTTPTask) setupAdvanceOpts(req *http.Request) error {
 	if opt.RequestBody != nil {
 		if opt.RequestBody.BodyType != "" {
 			req.Header.Add("Content-Type", opt.RequestBody.BodyType)
+			t.reqHeader["Content-Type"] = opt.RequestBody.BodyType
 		}
+		t.reqBody = opt.RequestBody
 	}
 
 	// proxy headers
