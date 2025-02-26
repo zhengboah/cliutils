@@ -31,7 +31,7 @@ const (
 	ClassWait      = "WAIT"
 	ClassMulti     = "MULTI"
 
-	MaxMsgSize = 1 * 1024 * 1024
+	MaxMsgSize = 100 * 1024
 )
 
 type ConfigVar struct {
