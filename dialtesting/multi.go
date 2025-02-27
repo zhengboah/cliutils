@@ -188,12 +188,22 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 			step.postScriptResult = httpTask.postScriptResult
 			for i, v := range step.ExtractedVars {
 				value, ok := httpTask.postScriptResult.Vars[v.Field]
+				varValue := ""
+				if value != nil {
+					varValue = fmt.Sprintf("%v", value)
+				}
 				if ok && !v.Secure && value != nil {
-					step.ExtractedVars[i].Value = fmt.Sprintf("%v", value)
+					step.ExtractedVars[i].Value = varValue
 				}
 
 				// set extracted vars, which can be used in next step
-				t.extractedVars = append(t.extractedVars, step.ExtractedVars[i])
+				t.extractedVars = append(t.extractedVars,
+					MultiExtractedVar{
+						Name:   v.Name,
+						Value:  varValue,
+						Secure: v.Secure,
+						Field:  v.Field,
+					})
 			}
 		}
 		task.Stop()
