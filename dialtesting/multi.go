@@ -214,6 +214,9 @@ func (t *MultiTask) runHTTPStep(step *MultiStep) (map[string]interface{}, error)
 }
 
 func (t *MultiTask) run() error {
+	if len(t.Steps) == 0 {
+		return fmt.Errorf("no steps found")
+	}
 	now := time.Now()
 	lastStep := -1 // last step which is not wait
 
@@ -227,6 +230,7 @@ func (t *MultiTask) run() error {
 
 		if !isLastStepFailed {
 			step.result["task_start_time"] = time.Now().UnixMilli()
+			lastStep = i
 		}
 
 		// run step
@@ -241,9 +245,6 @@ func (t *MultiTask) run() error {
 					step.result["url"] = httpTask.URL
 				}
 			} else {
-				if i > lastStep {
-					lastStep = i
-				}
 				result, err := t.runHTTPStep(step)
 
 				for k, v := range result {
