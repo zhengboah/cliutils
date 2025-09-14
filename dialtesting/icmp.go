@@ -22,6 +22,7 @@ import (
 	"text/template"
 	"time"
 
+	log "github.com/GuanceCloud/cliutils/logger"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -33,7 +34,13 @@ var (
 )
 
 const (
-	PingTimeout = 3 * time.Second
+	PingTimeout  = 3 * time.Second
+	PingWaitTime = 1 * time.Minute
+)
+
+var (
+	PingSendCount atomic.Int32
+	PingRecvCount atomic.Int32
 )
 
 type ICMP struct {
@@ -436,6 +443,8 @@ var (
 	icmpLockCount     atomic.Int64
 )
 
+var logger = log.DefaultSLogger("icmp")
+
 func init() {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	// PID is typically 1 when running in a container; in that case, set
@@ -460,12 +469,198 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func doPing(timeout time.Duration, target string) (rtt time.Duration, err error) {
+func doPing1(timeout time.Duration, target string) (rtt time.Duration, err error) {
+	waitTimeCtx, cancel := context.WithTimeout(context.Background(), PingWaitTime)
+	defer cancel()
 	select {
 	case ICMPConcurrentCh <- struct{}{}:
-	default:
+	case <-waitTimeCtx.Done():
 		return 0, fmt.Errorf("icmp concurrent count exceeds limit(%d)", MaxICMPConcurrent)
 	}
+
+	defer func() {
+		<-ICMPConcurrentCh
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	var (
+		requestType icmp.Type
+		replyType   icmp.Type
+		icmpConn    *icmp.PacketConn
+	)
+
+	var dstIPAddr *net.IPAddr
+
+	resolver := &net.Resolver{}
+	ips, err := resolver.LookupIP(ctx, "ip4", target)
+	if err == nil {
+		for _, ip := range ips {
+			dstIPAddr = &net.IPAddr{IP: ip}
+			break
+		}
+	} else {
+		return 0, fmt.Errorf("look up ip failed: %w", err)
+	}
+
+	var srcIP net.IP
+	privileged := true
+	// Unprivileged sockets are supported on Darwin and Linux only.
+	tryUnprivileged := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
+
+	if dstIPAddr.IP.To4() == nil {
+		requestType = ipv6.ICMPTypeEchoRequest
+		replyType = ipv6.ICMPTypeEchoReply
+
+		srcIP = net.ParseIP("::")
+
+		if tryUnprivileged {
+			// "udp" here means unprivileged -- not the protocol "udp".
+			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
+			if err != nil {
+				return 0, fmt.Errorf("listen udp6 failed: %w", err)
+			} else {
+				privileged = false
+			}
+		}
+
+		if privileged {
+			icmpConn, err = icmp.ListenPacket("ip6:ipv6-icmp", srcIP.String())
+			if err != nil {
+				return 0, fmt.Errorf("listen ip6:ipv6-icmp failed: %w", err)
+			}
+		}
+		defer icmpConn.Close()
+
+		_ = icmpConn.IPv6PacketConn().SetControlMessage(ipv6.FlagHopLimit, true)
+	} else {
+		requestType = ipv4.ICMPTypeEcho
+		replyType = ipv4.ICMPTypeEchoReply
+
+		srcIP = net.ParseIP("0.0.0.0")
+
+		if tryUnprivileged {
+			icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
+			if err == nil {
+				privileged = false
+			}
+		}
+
+		if privileged {
+			icmpConn, err = icmp.ListenPacket("ip4:icmp", srcIP.String())
+			if err != nil {
+				return 0, fmt.Errorf("listen ip4:icmp failed: %w", err)
+			}
+		}
+		defer icmpConn.Close()
+
+		_ = icmpConn.IPv4PacketConn().SetControlMessage(ipv4.FlagTTL, true)
+	}
+	var dst net.Addr = dstIPAddr
+	if !privileged {
+		dst = &net.UDPAddr{IP: dstIPAddr.IP, Zone: dstIPAddr.Zone}
+	}
+
+	var data []byte = []byte("Prometheus Blackbox Exporter")
+
+	body := &icmp.Echo{
+		ID:   icmpID,
+		Seq:  int(getICMPSequence()),
+		Data: data,
+	}
+	wm := icmp.Message{
+		Type: requestType,
+		Code: 0,
+		Body: body,
+	}
+
+	wb, err := wm.Marshal(nil)
+	if err != nil {
+		return 0, fmt.Errorf("marshal message failed: %w", err)
+	}
+
+	rttStart := time.Now()
+
+	if icmpConn != nil {
+		if _, err = icmpConn.WriteTo(wb, dst); err != nil {
+			return 0, fmt.Errorf("write to failed: %w", err)
+		}
+	} else {
+		return 0, fmt.Errorf("conn is nil")
+	}
+
+	// Reply should be the same except for the message type and ID if
+	// unprivileged sockets were used and the kernel used its own.
+	wm.Type = replyType
+	// Unprivileged cannot set IDs on Linux.
+	idUnknown := !privileged && runtime.GOOS == "linux"
+	if idUnknown {
+		body.ID = 0
+	}
+	wb, err = wm.Marshal(nil)
+	if err != nil {
+		return 0, fmt.Errorf("marshal message failed: %w", err)
+	}
+
+	if idUnknown {
+		// If the ID is unknown (due to unprivileged sockets) we also cannot know
+		// the checksum in userspace.
+		wb[2] = 0
+		wb[3] = 0
+	}
+
+	rb := make([]byte, 65536)
+	deadline, _ := ctx.Deadline()
+	err = icmpConn.SetReadDeadline(deadline)
+	if err != nil {
+		return 0, fmt.Errorf("set read deadline failed: %w", err)
+	}
+
+	for {
+		var n int
+		var peer net.Addr
+		var err error
+
+		if dstIPAddr.IP.To4() == nil {
+			n, _, peer, err = icmpConn.IPv6PacketConn().ReadFrom(rb)
+		} else {
+			n, _, peer, err = icmpConn.IPv4PacketConn().ReadFrom(rb)
+		}
+		if err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				return 0, nil
+			}
+			continue
+		}
+		if peer.String() != dst.String() {
+			continue
+		}
+		if idUnknown {
+			// Clear the ID from the packet, as the kernel will have replaced it (and
+			// kept track of our packet for us, hence clearing is safe).
+			rb[4] = 0
+			rb[5] = 0
+		}
+		if idUnknown || replyType == ipv6.ICMPTypeEchoReply {
+			// Clear checksum to make comparison succeed.
+			rb[2] = 0
+			rb[3] = 0
+		}
+		if bytes.Equal(rb[:n], wb) {
+			rtt = time.Since(rttStart)
+			return rtt, nil
+		}
+	}
+}
+
+func doPing(timeout time.Duration, target string) (rtt time.Duration, err error) {
+	waitTimeCtx, cancel := context.WithTimeout(context.Background(), PingWaitTime)
+	defer cancel()
+	select {
+	case ICMPConcurrentCh <- struct{}{}:
+	case <-waitTimeCtx.Done():
+		return 0, fmt.Errorf("icmp concurrent count exceeds limit(%d)", MaxICMPConcurrent)
+	}
+
 	defer func() {
 		<-ICMPConcurrentCh
 	}()

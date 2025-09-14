@@ -6,9 +6,13 @@
 package dialtesting
 
 import (
+	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -120,4 +124,118 @@ func TestICMPRenderTemplate(t *testing.T) {
 
 	assert.NoError(t, ct.renderTemplate(fm))
 	assert.Equal(t, "localhost", ct.Host)
+}
+
+func TestDoPing(t *testing.T) {
+	MaxICMPConcurrent = 1000 // max icmp concurrent, to avoid too many icmp packets at the same time
+	concurrency := 5000
+	var lossCnt atomic.Int32
+	ipsChan := make(chan string, concurrency)
+	var wg sync.WaitGroup
+	go func() {
+		for _, ip := range ips {
+			ipsChan <- ip
+		}
+		close(ipsChan)
+	}()
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for ip := range ipsChan {
+				start := time.Now()
+				rtt, err := doPing(30*time.Second, ip)
+				if rtt == 0 {
+					lossCnt.Add(1)
+				}
+				if err != nil {
+					fmt.Printf("ping %s failed: %s\n", ip, err)
+				}
+				fmt.Printf("ping %s, rtt: %v, ip: %s, cost: %v\n", ip, rtt, ip, time.Since(start))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	fmt.Printf("loss cnt: %d/%d\n", lossCnt.Load(), len(ips))
+}
+
+func TestDoPingOnce(t *testing.T) {
+	ip := "127.0.0.1"
+	// ip := "37.152.148.44"
+	start := time.Now()
+	rtt, err := doPing(30*time.Second, ip)
+	if err != nil {
+		fmt.Printf("ping %s failed: %s\n", ip, err)
+	}
+	fmt.Printf("ping %s, rtt: %v, ip: %s, cost: %v\n", ip, rtt, ip, time.Since(start))
+}
+
+func TestProbeICMPOnce(t *testing.T) {
+	// ip := "127.0.0.1"
+	// ip := "37.152.148.44"
+	ip := "37.152.148.45"
+	start := time.Now()
+	rtt, success := ProbeICMP(30*time.Second, ip)
+	if !success {
+		fmt.Printf("ping %s failed: %s\n", ip, "icmp failed")
+		return
+	}
+	fmt.Printf("ping %s, rtt: %v, ip: %s, cost: %v\n", ip, rtt, ip, time.Since(start))
+}
+
+func TestProbeICMP(t *testing.T) {
+	concurrency := 5000
+	var lossCnt atomic.Int32
+	ipsChan := make(chan string, concurrency)
+	var wg sync.WaitGroup
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			for _, ip := range ips {
+				ipsChan <- ip
+			}
+		}
+	}()
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for ip := range ipsChan {
+				start := time.Now()
+				rtt, success := ProbeICMP(30*time.Second, ip)
+				if rtt == 0 {
+					lossCnt.Add(1)
+				}
+				if !success {
+					fmt.Printf("ping %s failed: %s\n", ip, "icmp failed")
+					continue
+				}
+				fmt.Printf("ping %s, rtt: %v, ip: %s, cost: %v\n", ip, rtt, ip, time.Since(start))
+			}
+		}(i)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			time.Sleep(time.Second)
+			ProbeTest()
+		}
+	}()
+
+	wg.Wait()
+
+	fmt.Printf("loss cnt: %d/%d\n", lossCnt.Load(), len(ips))
+}
+
+func TestICMPProbeTest(t *testing.T) {
+	for {
+		time.Sleep(1 * time.Second)
+		ProbeTest()
+	}
 }

@@ -34,15 +34,19 @@ const (
 )
 
 var (
-	setupLock         sync.Mutex // setup global variable
-	MaxMsgSize        = 100 * 1024
-	MaxICMPConcurrent = 1000             // max icmp concurrent, to avoid too many icmp packets at the same time
-	MaxICMPWaitTime   = 60 * time.Second // max time to wait to send icmp packet
-	ICMPConcurrentCh  chan struct{}
+	setupLock            sync.Mutex // setup global variable
+	MaxMsgSize           = 100 * 1024
+	MaxICMPConcurrent    = 1000             // max icmp concurrent, to avoid too many icmp packets at the same time
+	MaxICMPWaitTime      = 60 * time.Second // max time to wait to send icmp packet
+	ICMPConcurrentCh     chan struct{}
+	ICMPConcurrentSendCh chan struct{}
+	ICMPConcurrentRecvCh chan struct{}
 )
 
 func init() {
 	ICMPConcurrentCh = make(chan struct{}, MaxICMPConcurrent)
+	ICMPConcurrentSendCh = make(chan struct{}, MaxICMPConcurrent)
+	ICMPConcurrentRecvCh = make(chan struct{}, MaxICMPConcurrent)
 }
 
 type ConfigVar struct {
